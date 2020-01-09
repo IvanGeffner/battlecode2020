@@ -21,9 +21,8 @@ public class Miner extends MyRobot{
         if (Constants.DEBUG == 1) System.out.println("Turn starts: " + Clock.getBytecodeNum());
         explore.update();
         if (Constants.DEBUG == 1) System.out.println("Update Finishes: " + Clock.getBytecodeNum());
-        if (!rc.isReady()) return;
-        if (tryMine()) return;
-        if (tryDeposit()) return;
+        tryMine();
+        tryDeposit();
         if (Constants.DEBUG == 1) System.out.println("GetTarget Starts: " + Clock.getBytecodeNum());
         MapLocation target = getTarget();
         if (Constants.DEBUG == 1) System.out.println("GetTarget Finishes: " + Clock.getBytecodeNum());
