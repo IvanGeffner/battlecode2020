@@ -1,0 +1,6 @@
+MINERS:
+- Avoid trying to reach unreachable Soups [HARD]
+
+PATHFINDING:
+- Recognize repeated states
+- Not to reset when passing through a unit

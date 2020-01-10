@@ -33,7 +33,7 @@ public class HQ extends MyRobot{
 
     boolean shouldBuildMiner(){
         if (!rc.isReady()) return false;
-        return miners <= 7;
+        return miners <= 14;
     }
 
     void buildMiner(){

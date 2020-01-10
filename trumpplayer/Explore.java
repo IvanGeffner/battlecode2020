@@ -26,6 +26,9 @@ public class Explore {
     MapLocation exploreTarget = null;
     int H, W;
     Direction[][] dirPath;
+    int soupCont = 0;
+    int totalSoupCount = 0;
+    int diffSoupCount = 0;
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
     //int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2,0,-4,4,0,-1,1,-4,4,-4,4,-1,1,-3,3,-3,3,-2,2,-4,4,-4,4,-2,2};
@@ -60,9 +63,14 @@ public class Explore {
     void update() {
         myLoc = rc.getLocation();
         checkRefinery();
+        checkWaterLevel();
         if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
         checkCells();
         if (Constants.DEBUG == 1) System.out.println("After checking cells: " + Clock.getBytecodeNum());
+    }
+
+    void checkWaterLevel(){
+
     }
 
     void checkRefinery() {
@@ -96,20 +104,31 @@ public class Explore {
     void checkCells() {
         int sight = rc.getCurrentSensorRadiusSquared();
         closestSoup = null;
+        soupCont = 0;
         MapLocation newLoc = rc.getLocation();
         Direction[] dirArray = dirPath[sight];
         int i = dirArray.length;
+        boolean foundSafe = false;
         try {
             while (--i >= 0) {
                 newLoc = newLoc.add(dirArray[i]);
                 if (!rc.canSenseLocation(newLoc)) continue;
                 int prevNumber = map[newLoc.x][newLoc.y] | EXPLORE_BIT;
-                if (rc.senseSoup(newLoc) > 0 && !rc.senseFlooding(newLoc)) {
+                if (!foundSafe && rc.senseElevation(newLoc) > WaterManager.waterLevelPlus){
+                    foundSafe = true;
+                    WaterManager.closestSafeCell = newLoc;
+                    WaterManager.height = rc.senseElevation(newLoc);
+                }
+                int soup = rc.senseSoup(newLoc);
+                if (soup > 0 && !rc.senseFlooding(newLoc)) {
                     if (closestSoup == null) closestSoup = newLoc;
+                    soupCont += soup;
                     if ((prevNumber & SOUP_BIT) == 0) {
                         prevNumber = prevNumber | SOUP_BIT | (currentIndex << INDEX_OFFSET);
                         soups[currentIndex] = newLoc;
                         currentIndex = (currentIndex + 1) % MAX_SOUP_ARRAY;
+                        totalSoupCount += soup;
+                        ++diffSoupCount;
                     }
                 } else {
                     if ((prevNumber & SOUP_BIT) > 0) {
@@ -155,7 +174,7 @@ public class Explore {
         if (exploreTarget != null) {
             bestDist = myLoc.distanceSquaredTo(exploreTarget);
         }
-        while (Clock.getBytecodesLeft() > 3000) {
+        while (Clock.getBytecodesLeft() > 1500) {
             int x = (int) (Math.random() * rc.getMapWidth());
             int y = (int) (Math.random() * rc.getMapHeight());
             MapLocation newLoc = new MapLocation(x, y);
