@@ -31,6 +31,7 @@ public class BugPath {
     final int MIN_DIST_RESET = 3;
 
     void update(){
+        if (!rc.isReady()) return;
         myLoc = rc.getLocation();
         round = rc.getRoundNum();
         updateArray();
@@ -156,12 +157,15 @@ public class BugPath {
             boolean blind = rc.getCurrentSensorRadiusSquared() < 2;
             boolean canMove = false;
             for (Direction dir : dirs) {
-                if (blind && rc.canMove(dir)){
-                    canMoveArray[dir.ordinal()] = true;
-                    canMove = true;
+                if (blind){
+                    if (rc.canMove(dir)) {
+                        canMoveArray[dir.ordinal()] = true;
+                        canMove = true;
+                    }
                 }
                 else {
                     MapLocation newLoc = myLoc.add(dir);
+                    if (!rc.canSenseLocation(newLoc)) continue;
                     if (isFlooded(newLoc)) {
                         flooded[dir.ordinal()] = true;
                         foundFlooding = true;
@@ -291,29 +295,6 @@ public class BugPath {
         //if (rc.getID() == 13977) System.out.println("soft reset!");
         if (minLocationToTarget != null) minDistToTarget = minLocationToTarget.distanceSquaredTo(target);
         else resetPathfinding();
-    }
-
-    int getOrdinal(Direction dir){
-        switch (dir){
-            case CENTER:
-                return 0;
-            case NORTH:
-                return 1;
-            case NORTHWEST:
-                return 2;
-            case WEST:
-                return 3;
-            case SOUTHWEST:
-                return 4;
-            case SOUTH:
-                return 5;
-            case SOUTHEAST:
-                return 6;
-            case EAST:
-                return 7;
-            default:
-                return 8;
-        }
     }
 
 }

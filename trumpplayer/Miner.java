@@ -11,6 +11,7 @@ public class Miner extends MyRobot{
     BugPath bugPath;
     Explore explore;
     WaterManager waterManager;
+    Comm comm;
 
     final int MIN_SOUP_FOR_REFINERY = 1000;
     final int MIN_DIST_FOR_REFINERY = 50;
@@ -18,14 +19,18 @@ public class Miner extends MyRobot{
     Miner(RobotController rc){
         this.rc = rc;
         waterManager = new WaterManager(rc);
+        comm = new Comm(rc);
         explore = new Explore(rc);
         bugPath = new BugPath(rc);
     }
 
     void play(){
+        if (comm.singleMessage()) comm.readMessages();
         waterManager.update();
         bugPath.update();
         explore.update();
+        checkComm();
+        if (Constants.DEBUG == 1 && comm.EnemyHQLoc != null) rc.setIndicatorLine(rc.getLocation(), comm.EnemyHQLoc, 0, 255, 0);
 
         boolean flee = false;
         if (bugPath.shouldFlee && WaterManager.closestSafeCell != null){
@@ -42,6 +47,7 @@ public class Miner extends MyRobot{
            MapLocation target = getTarget();
            bugPath.moveTo(target);
        }
+       comm.readMessages();
     }
 
     MapLocation getTarget(){
@@ -115,6 +121,13 @@ public class Miner extends MyRobot{
         }
         return false;
 
+    }
+
+    void checkComm(){
+        if (explore.enemyHQ != null) comm.sendHQLoc(explore.enemyHQ);
+        if (explore.totalSoupCount/Constants.SOUP_PER_MINER > comm.maxSoup/Constants.SOUP_PER_MINER){
+            if(comm.maxSoup/Constants.SOUP_PER_MINER < Constants.MAX_MINERS) comm.sendMaxSoup(explore.totalSoupCount);
+        }
     }
 
 

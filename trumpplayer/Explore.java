@@ -8,7 +8,6 @@ import java.util.ArrayList;
 public class Explore {
 
     final int MAX_SOUP_ARRAY = 50;
-    final int MAX_SOUP_ARRAY_AUX = 49;
     final int SOUP_BIT = 2;
     final int EXPLORE_BIT = 1;
     final int INDEX_OFFSET = 2;
@@ -30,11 +29,16 @@ public class Explore {
     int totalSoupCount = 0;
     int diffSoupCount = 0;
 
+    MapLocation enemyHQ;
+    Team myTeam;
+
+
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
     //int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2,0,-4,4,0,-1,1,-4,4,-4,4,-1,1,-3,3,-3,3,-2,2,-4,4,-4,4,-2,2};
 
     Explore(RobotController rc) {
         this.rc = rc;
+        myTeam = rc.getTeam();
         H = rc.getMapHeight();
         W = rc.getMapWidth();
         map = new int[W][H];
@@ -63,27 +67,26 @@ public class Explore {
     void update() {
         myLoc = rc.getLocation();
         checkRefinery();
-        checkWaterLevel();
         if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
         checkCells();
         if (Constants.DEBUG == 1) System.out.println("After checking cells: " + Clock.getBytecodeNum());
-    }
-
-    void checkWaterLevel(){
-
     }
 
     void checkRefinery() {
         try {
             if (rc.canSenseLocation(closestRefineryLoc)) {
                 RobotInfo r = rc.senseRobotAtLocation(closestRefineryLoc);
-                if (r.team != rc.getTeam() || r.type != RobotType.REFINERY) closestRefineryLoc = HQloc;
+                if (r != null || r.team != rc.getTeam() || r.type != RobotType.REFINERY) closestRefineryLoc = HQloc;
             }
-            RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam());
+            RobotInfo[] robots = rc.senseNearbyRobots();
             int bestDist = myLoc.distanceSquaredTo(closestRefineryLoc);
             for (RobotInfo r : robots) {
                 switch (r.type) {
                     case HQ:
+                        if (r.team != rc.getTeam()){
+                            enemyHQ = r.location;
+                            break;
+                        }
                     case REFINERY:
                         if (r.team == rc.getTeam()) {
                             int dist = myLoc.distanceSquaredTo(r.location);
