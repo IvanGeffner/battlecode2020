@@ -40,7 +40,7 @@ public class BugPath {
 
     void moveTo(MapLocation target){
         //No target? ==> bye!
-        if (target != null) rc.setIndicatorDot(target, 255, 0, 0);
+        if (target != null && Constants.DEBUG == 1) rc.setIndicatorDot(target, 255, 0, 0);
         if (!rc.isReady()) return;
         if (target == null) return;
 
@@ -48,6 +48,8 @@ public class BugPath {
         //different target? ==> previous data does not help!
         if (prevTarget == null){
             resetPathfinding();
+            rotateRight = null;
+            rotateRightAux = null;
         }
         else {
             int distTargets = target.distanceSquaredTo(prevTarget);
@@ -206,7 +208,8 @@ public class BugPath {
         try {
             if (shouldFlee) {
                 if (rc.senseElevation(myLoc) > WaterManager.waterLevelPlus){
-                    if (surroundedByWater || turnsFleeing >= WaterManager.MIN_SAFE_TURNS){
+                    if (turnsFleeing >= WaterManager.MIN_SAFE_TURNS){
+                        //if (surroundedByWater && turnsFleeing < WaterManager.MIN_SAFE_TURNS) turnsFleeing = WaterManager.MIN_SAFE_TURNS-1;
                         shouldFlee = false;
                         turnsFleeing = 0;
                     } else turnsFleeing++;
@@ -244,6 +247,7 @@ public class BugPath {
 
     boolean tryGreedyMove(){
         try {
+            if (rotateRightAux != null) return false;
             MapLocation myLoc = rc.getLocation();
             Direction dir = myLoc.directionTo(prevTarget);
             if (canMoveArray[dir.ordinal()]) {

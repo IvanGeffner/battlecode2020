@@ -8,12 +8,17 @@ public class HQ extends MyRobot{
     Direction[] nonZeroDirs = new Direction[]{Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTHWEST, Direction.WEST, Direction.NORTHWEST};
     MapLocation[] surroundings;
 
+    HQWall hqWall;
+    BuildingZone buildingZone;
+
     int myX, myY;
     MapLocation myLoc;
     Comm comm;
     int miners = 0;
     int maxSoup = 0;
     Direction dirToSoup = null;
+
+    final int BUILDER_SOUP = 1080;
 
     int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4,-5,-4,-4,-3,-3,0,0,3,3,4,4,5,-5,-5,-1,-1,1,1,5,5,-5,-5,-2,-2,2,2,5,5,-4,-4,4,4,-5,-5,-3,-3,3,3,5,5,-6,0,0,6,-6,-6,-1,-1,1,1,6,6,-6,-6,-2,-2,2,2,6,6,-5,-5,-4,-4,4,4,5,5,-6,-6,-3,-3,3,3,6,6};
     int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2,0,-4,4,0,-1,1,-4,4,-4,4,-1,1,-3,3,-3,3,-2,2,-4,4,-4,4,-2,2,0,-3,3,-4,4,-5,5,-4,4,-3,3,0,-1,1,-5,5,-5,5,-1,1,-2,2,-5,5,-5,5,-2,2,-4,4,-4,4,-3,3,-5,5,-5,5,-3,3,0,-6,6,0,-1,1,-6,6,-6,6,-1,1,-2,2,-6,6,-6,6,-2,2,-4,4,-5,5,-5,5,-4,4,-3,3,-6,6,-6,6,-3,3};
@@ -25,6 +30,8 @@ public class HQ extends MyRobot{
         for (int i = 0; i < 8; ++i) surroundings[i] = rc.getLocation().add(nonZeroDirs[i]);
         myLoc = rc.getLocation();
         myX = myLoc.x; myY = myLoc.y;
+        buildingZone = new BuildingZone(rc);
+        hqWall = new HQWall(rc);
         //if (Constants.DEBUG == 1) System.out.println("I'm at (" + rc.getLocation().x + ", " + rc.getLocation().y + ")");
     }
 
@@ -33,7 +40,18 @@ public class HQ extends MyRobot{
         if (comm.maxSoup > maxSoup) maxSoup = comm.maxSoup;
         getDirToSoup();
         if (shouldBuildMiner()) buildMiner();
+        if (shouldBuildBuilder()){
+            buildMiner();
+            comm.sendMessage(comm.BUILDER_TYPE, 0);
+        }
         comm.readMessages();
+        //if (buildingZone.finished()) buildingZone.debugPrint();
+        hqWall.run();
+        if (hqWall.finished() && buildingZone.message == null){
+            buildingZone.update(hqWall.mes);
+        }
+        if (hqWall.finished()) comm.sendWall(hqWall.mes);
+        buildingZone.run();
     }
 
     boolean shouldBuildMiner(){
@@ -69,6 +87,7 @@ public class HQ extends MyRobot{
             for (int i = 0; i < X.length; ++i) {
                 MapLocation loc = new MapLocation(myX + X[i], myY + Y[i]);
                 if (myLoc.distanceSquaredTo(loc) > rc.getCurrentSensorRadiusSquared()) break;
+                if (!rc.canSenseLocation(loc)) continue;
                 if (rc.senseSoup(loc) > 0 && !rc.senseFlooding(loc)){
                     soup += rc.senseSoup(loc);
                     if (dirToSoup == null) dirToSoup = myLoc.directionTo(loc);
@@ -78,6 +97,20 @@ public class HQ extends MyRobot{
         } catch (Throwable t){
             t.printStackTrace();
         }
+    }
+
+    boolean shouldBuildBuilder(){
+        if (minerNearby()) return false;
+        if (rc.getTeamSoup() < BUILDER_SOUP) return false;
+        return true;
+    }
+
+    boolean minerNearby(){
+        RobotInfo[] r = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam());
+        for (RobotInfo ri : r){
+            if (ri.getType() == RobotType.MINER) return true;
+        }
+        return false;
     }
 
 }

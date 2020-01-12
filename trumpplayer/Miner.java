@@ -12,6 +12,8 @@ public class Miner extends MyRobot{
     Explore explore;
     WaterManager waterManager;
     Comm comm;
+    BuildingZone buildingZone;
+    boolean builder;
 
     final int MIN_SOUP_FOR_REFINERY = 1000;
     final int MIN_DIST_FOR_REFINERY = 50;
@@ -20,17 +22,19 @@ public class Miner extends MyRobot{
         this.rc = rc;
         waterManager = new WaterManager(rc);
         comm = new Comm(rc);
+        builder = comm.checkBuilder();
         explore = new Explore(rc);
         bugPath = new BugPath(rc);
+        buildingZone = new BuildingZone(rc);
     }
 
     void play(){
         if (comm.singleMessage()) comm.readMessages();
         waterManager.update();
         bugPath.update();
-        explore.update();
+        if (!builder) explore.update();
         checkComm();
-        if (Constants.DEBUG == 1 && comm.EnemyHQLoc != null) rc.setIndicatorLine(rc.getLocation(), comm.EnemyHQLoc, 0, 255, 0);
+        //if (Constants.DEBUG == 1 && comm.EnemyHQLoc != null) rc.setIndicatorLine(rc.getLocation(), comm.EnemyHQLoc, 0, 255, 0);
 
         boolean flee = false;
         if (bugPath.shouldFlee && WaterManager.closestSafeCell != null){
@@ -39,15 +43,24 @@ public class Miner extends MyRobot{
         }
         Direction miningDir = getMiningDir();
         if (miningDir != null) {
-            tryBuild();
+            tryBuildRefinery();
             tryMine(miningDir);
         }
         tryDeposit();
+        tryBuilding();
        if (!flee){
-           MapLocation target = getTarget();
+           MapLocation target;
+           if (!builder) {
+               target = getTarget();
+           }
+           else{
+                target = explore.HQloc;
+           }
            bugPath.moveTo(target);
        }
        comm.readMessages();
+       if (comm.wallMes != null) buildingZone.update(comm.wallMes);
+       buildingZone.run();
     }
 
     MapLocation getTarget(){
@@ -72,7 +85,7 @@ public class Miner extends MyRobot{
         return false;
     }
 
-    boolean tryBuild(){
+    boolean tryBuildRefinery(){
         try {
             if (!rc.isReady()) return false;
             if (rc.getTeamSoup() < RobotType.REFINERY.cost) return false;
@@ -130,6 +143,43 @@ public class Miner extends MyRobot{
         }
     }
 
+    void tryBuilding(){
+        if (!rc.isReady()) return;
+        if (!comm.upToDate()) return;
+        if (!buildingZone.finished()) return;
+        RobotType type = BuildingManager.getNextBuilding(comm);
+        if (type == null) return;
+        if (Constants.DEBUG == 1) System.out.println(type.name());
+        if (rc.getTeamSoup() < type.cost) return;
+        build(type);
+    }
 
-
+    void build(RobotType type){
+        try {
+            Direction bestDir = null;
+            int bestHeight = 0;
+            Direction dir = Direction.NORTH;
+            MapLocation myLoc = rc.getLocation();
+            for (int i = 0; i < 8; ++i) {
+                if (rc.canBuildRobot(type, dir)) {
+                    MapLocation newLoc = myLoc.add(dir);
+                    if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) {
+                        if (buildingZone.map[newLoc.x][newLoc.y] != 1) continue;
+                        int h = rc.senseElevation(newLoc);
+                        if (bestDir == null || h > bestHeight) {
+                            bestDir = dir;
+                            bestHeight = h;
+                        }
+                    }
+                }
+                dir = dir.rotateLeft();
+            }
+            if (bestDir != null) {
+                rc.buildRobot(type, bestDir);
+                comm.sendMessage(comm.BUILDING_TYPE, type.ordinal());
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
 }

@@ -16,7 +16,7 @@ public class WaterManager {
     static int waterLevelPlus = 0;
     static MapLocation closestSafeCell = null;
     static int height;
-    static final int MIN_SAFE_TURNS = 4;
+    static final int MIN_SAFE_TURNS = 7;
 
     void update(){
         int r = rc.getRoundNum();

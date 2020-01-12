@@ -12,15 +12,24 @@ public class Comm {
 
     final int FIRST_ROUND = 1;
 
-    final int HQ_TYPE = 1;
-    final int SOUP_TYPE = 2;
+    static final int HQ_TYPE = 1;
+    static final int SOUP_TYPE = 2;
+    static final int BUILDER_TYPE = 3;
+    static final int BUILDING_TYPE = 4;
+    static final int WALL = 5;
+
+    int[] buildings;
+    int[] wallMes = null;
+
     int MASK = 4534653;
+    boolean emergency = false;
 
     final int BYTECODE_LEFT = 300;
 
     Comm(RobotController rc){
         this.rc = rc;
         MASK += rc.getTeam().ordinal();
+        buildings = new int[RobotType.values().length];
     }
 
     boolean singleMessage(){
@@ -39,7 +48,7 @@ public class Comm {
                 for (Transaction t : transactions){
                     if (t == null) continue; // Can this happen? wtf
                     if ((MASK^t.getMessage()[6]) != turn) continue;
-                    switch(t.getMessage()[0]){
+                    switch(t.getMessage()[0]&1023){
                         case HQ_TYPE:
                             int code = t.getMessage()[1];
                             EnemyHQLoc = new MapLocation((code >>> 6), (code&0x0000003F));
@@ -48,6 +57,13 @@ public class Comm {
                             int soup = t.getMessage()[1];
                             if (soup > maxSoup) maxSoup = soup;
                             break;
+                        case BUILDING_TYPE:
+                            int index = t.getMessage()[1];
+                            if (0 <= index && index < buildings.length) ++buildings[index];
+                            break;
+                        case WALL:
+                            if (wallMes == null) wallMes = t.getMessage();
+                            break;
                     }
                 }
                 turn++;
@@ -55,6 +71,23 @@ public class Comm {
         } catch (Throwable t){
             t.printStackTrace();
         }
+    }
+
+    boolean checkBuilder(){
+        try {
+            int r = rc.getRoundNum();
+            if (r <= FIRST_ROUND) return false;
+            Transaction[] transactions = rc.getBlock(r-1);
+            for (Transaction t : transactions){
+                if (t == null) continue;
+                if ((MASK^t.getMessage()[6]) == r-1){
+                    if (t.getMessage()[0] == BUILDER_TYPE) return true;
+                }
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+        return false;
     }
 
     void sendHQLoc(MapLocation loc){
@@ -67,6 +100,17 @@ public class Comm {
         if (soup <= maxSoup) return;
         if (!upToDate()) return;
         sendMessage(SOUP_TYPE, soup);
+    }
+
+    void sendWall(int[] wall){
+        if (wallMes != null) return;
+        try {
+            wall[6] = rc.getRoundNum() ^ MASK;
+            int b = getBidValue();
+            if (rc.canSubmitTransaction(wall, b)) rc.submitTransaction(wall, b);
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
     }
 
     void sendMessage(int type, int code){
