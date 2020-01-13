@@ -9,9 +9,11 @@ import java.util.HashSet;
 public class DroneBugPath {
 
     RobotController rc;
+    Comm comm;
 
-    DroneBugPath(RobotController rc){
+    DroneBugPath(RobotController rc, Comm comm){
         this.rc = rc;
+        this.comm = comm;
     }
 
     Boolean rotateRight = null; //if I should rotate right or left
@@ -159,12 +161,10 @@ public class DroneBugPath {
     void updateArray(){
         canMoveArray = new boolean[9];
         try {
-            boolean foundFlooding = false;
-            boolean blind = rc.getCurrentSensorRadiusSquared() < 2;
-            boolean canMove = false;
             for (Direction dir : dirs) {
                 if (rc.canMove(dir)) {
-                    canMoveArray[dir.ordinal()] = true;
+                    MapLocation newLoc = myLoc.add(dir);
+                    if (comm.dangerMap[newLoc.x][newLoc.y] <= 0) canMoveArray[dir.ordinal()] = true;
                 }
             }
         } catch (Throwable t){

@@ -23,6 +23,9 @@ public class Comm {
     static final int GUN = 9;
     static final int GUN_DESTROYED = 10;
 
+    final int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3};
+    final int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2};
+
     int[] buildings;
     int[] wallMes = null;
 
@@ -40,13 +43,15 @@ public class Comm {
     final int BYTECODE_LEFT_DRONE = 1000;
 
     boolean imdrone;
+    int w,h;
 
     Comm(RobotController rc){
         this.rc = rc;
         imdrone = rc.getType() == RobotType.DELIVERY_DRONE;
         MASK += rc.getTeam().ordinal();
         buildings = new int[RobotType.values().length];
-        map = new int[rc.getMapWidth()][rc.getMapHeight()];
+        w = rc.getMapWidth(); h = rc.getMapHeight();
+        map = new int[w][h];
         if (imdrone){
             dangerMap = new int[rc.getMapWidth()][rc.getMapHeight()];
             BYTECODE_LEFT = BYTECODE_LEFT_DRONE;
@@ -72,11 +77,11 @@ public class Comm {
                     switch(t.getMessage()[0]&1023){
                         case HQ_TYPE:
                             int code = t.getMessage()[1];
-                            if (imdrone && EnemyHQLoc == null){
-                                EnemyHQLoc = new MapLocation((code >>> 6)&63, (code&63));
-                                addDanger(EnemyHQLoc);
+                            EnemyHQLoc = new MapLocation((code >>> 6) & 63, (code & 63));
+                            if (map[EnemyHQLoc.x][EnemyHQLoc.y] == 0){
+                                map[EnemyHQLoc.x][EnemyHQLoc.y] = 1;
+                                if (imdrone) addDanger(EnemyHQLoc);
                             }
-                            else EnemyHQLoc = new MapLocation((code >>> 6) & 63, (code & 63));
                             terrestrial = (code >>> 12) > 0;
                             break;
                         case SOUP_TYPE:
@@ -103,14 +108,18 @@ public class Comm {
                         case GUN:
                             code = t.getMessage()[1];
                             MapLocation droneLoc = new MapLocation((code >>> 6)&63, (code&63));
-                            map[droneLoc.x][droneLoc.y] = 1;
-                            if (imdrone) addDanger(droneLoc);
+                            if (map[droneLoc.x][droneLoc.y] == 0) {
+                                map[droneLoc.x][droneLoc.y] = 1;
+                                if (imdrone) addDanger(droneLoc);
+                            }
                             break;
                         case GUN_DESTROYED:
                             code = t.getMessage()[1];
                             droneLoc = new MapLocation((code >>> 6)&63, (code&63));
-                            map[droneLoc.x][droneLoc.y] = 0;
-                            if (imdrone) removeDanger(droneLoc);
+                            if (map[droneLoc.x][droneLoc.y] == 1) {
+                                map[droneLoc.x][droneLoc.y] = 0;
+                                if (imdrone) removeDanger(droneLoc);
+                            }
                             break;
                     }
                 }
@@ -190,6 +199,18 @@ public class Comm {
         sendMessage(ENEMY_UNIT, 0);
     }
 
+    void sendGun(MapLocation loc){
+        if (!upToDate()) return;
+        if (map[loc.x][loc.y] == 1) return;
+        sendMessage(GUN, (loc.x << 6) | loc.y);
+    }
+
+    void sendGunDestroyed(MapLocation loc){
+        if (!upToDate()) return;
+        if (map[loc.x][loc.y] == 0) return;
+        sendMessage(GUN_DESTROYED, (loc.x << 6) | loc.y);
+    }
+
     int getBidValue(){
         try {
             int r = rc.getRoundNum();
@@ -212,12 +233,29 @@ public class Comm {
     }
 
     void addDanger(MapLocation loc){
+        if (Constants.DEBUG == 1) System.out.println("Starting danger at " + Clock.getBytecodeNum());
         int x = loc.x, y = loc.y;
-        
+        int i = X.length;
+        while (--i >= 0){
+            int newX = x + X[i], newY = y + Y[i];
+            if (newX < 0 || newX >= w) continue;
+            if (newY < 0 || newY >= h) continue;
+            ++dangerMap[newX][newY];
+            if (Constants.DEBUG == 1) rc.setIndicatorDot(new MapLocation(newX, newY), 0, 0, 255);
+        }
+        if (Constants.DEBUG == 1) System.out.println("Ending danger at " + Clock.getBytecodeNum());
+
     }
 
     void removeDanger(MapLocation loc){
-
+        int x = loc.x, y = loc.y;
+        int i = X.length;
+        while (--i >= 0){
+            int newX = x + X[i], newY = y + Y[i];
+            if (newX < 0 || newX >= w) continue;
+            if (newY < 0 || newY >= h) continue;
+            --dangerMap[newX][newY];
+        }
     }
 
 

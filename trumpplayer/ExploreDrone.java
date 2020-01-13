@@ -19,16 +19,20 @@ public class ExploreDrone {
     MapLocation enemyHQ;
     Team myTeam;
 
+    final int MAX_EXPLORE_TIME = 1500;
+
     boolean seenLandscaper = false, seenEnemy = false;
 
     RobotInfo closestMiner, closestLandscaper;
+    Comm comm;
 
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
     //int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2,0,-4,4,0,-1,1,-4,4,-4,4,-1,1,-3,3,-3,3,-2,2,-4,4,-4,4,-2,2};
 
-    ExploreDrone(RobotController rc) {
+    ExploreDrone(RobotController rc, Comm comm) {
         this.rc = rc;
+        this.comm = comm;
         myTeam = rc.getTeam();
         H = rc.getMapHeight();
         W = rc.getMapWidth();
@@ -89,6 +93,10 @@ public class ExploreDrone {
                             if (closestLandscaper == null || myLoc.distanceSquaredTo(closestMiner.location) > myLoc.distanceSquaredTo(r.location)) closestMiner = r;
                         }
                         break;
+                    case NET_GUN:
+                        if (r.team != rc.getTeam()){
+                            comm.sendGun(r.location);
+                        }
 
                 }
             }
@@ -111,6 +119,12 @@ public class ExploreDrone {
                     closestWater = newLoc;
                 }
                 map[newLoc.x][newLoc.y] = prevNumber;
+                if (comm.map[newLoc.x][newLoc.y] == 1){
+                    RobotInfo r = rc.senseRobotAtLocation(newLoc);
+                    if (r == null || (r.type != RobotType.NET_GUN && r.type != RobotType.HQ) || r.team != rc.getTeam().opponent()){
+                        comm.sendGunDestroyed(newLoc);
+                    }
+                }
             }
         } catch (Throwable t) {
             t.printStackTrace();
@@ -148,7 +162,9 @@ public class ExploreDrone {
         if (exploreTarget != null) {
             bestDist = myLoc.distanceSquaredTo(exploreTarget);
         }
+        int clock = Clock.getBytecodesLeft();
         while (Clock.getBytecodesLeft() > 1500) {
+            if (exploreTarget != null && clock - Clock.getBytecodesLeft() >= MAX_EXPLORE_TIME) break;
             int x = (int) (Math.random() * rc.getMapWidth());
             int y = (int) (Math.random() * rc.getMapHeight());
             MapLocation newLoc = new MapLocation(x, y);
@@ -162,7 +178,7 @@ public class ExploreDrone {
         return exploreTarget;
     }
 
-    void checkComm(Comm comm){
+    void checkComm(){
         //if (!comm.upToDate()) return; already checked there lol
         try {
             if (comm.water != null && rc.canSenseLocation(comm.water)) {

@@ -21,7 +21,7 @@ public class Miner extends MyRobot{
         waterManager = new WaterManager(rc);
         comm = new Comm(rc);
         builder = comm.checkBuilder();
-        explore = new Explore(rc);
+        explore = new Explore(rc, comm);
         bugPath = new BugPath(rc);
         buildingZone = new BuildingZone(rc);
     }
@@ -31,7 +31,7 @@ public class Miner extends MyRobot{
         waterManager.update();
         bugPath.update();
         if (!builder) explore.updateMiner();
-        explore.checkComm(comm);
+        explore.checkComm();
         //if (Constants.DEBUG == 1 && comm.EnemyHQLoc != null) rc.setIndicatorLine(rc.getLocation(), comm.EnemyHQLoc, 0, 255, 0);
 
         //if (rc.getRoundNum() == 320 && buildingZone.finished()) buildingZone.debugPrint();

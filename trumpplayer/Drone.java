@@ -16,14 +16,14 @@ public class Drone extends MyRobot{
         this.rc = rc;
         comm = new Comm(rc);
         //myLoc = rc.getLocation();
-        exploreDrone = new ExploreDrone(rc);
-        droneBugPath = new DroneBugPath(rc);
+        exploreDrone = new ExploreDrone(rc, comm);
+        droneBugPath = new DroneBugPath(rc, comm);
     }
 
     void play(){
         if (comm.singleMessage()) comm.readMessages();
         exploreDrone.update();
-        exploreDrone.checkComm(comm);
+        exploreDrone.checkComm();
         tryGrabEnemy();
         tryDropEnemy();
         MapLocation target = getTarget();
@@ -34,6 +34,7 @@ public class Drone extends MyRobot{
     }
 
     MapLocation getTarget(){
+        if (!rc.isReady()) return null;
         if (rc.isCurrentlyHoldingUnit()){
             if (exploreDrone.closestWater != null) return exploreDrone.closestWater;
             if (comm.water != null) return comm.water;
