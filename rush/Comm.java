@@ -1,4 +1,4 @@
-package trumpplayer;
+package rush;
 
 import battlecode.common.*;
 
@@ -22,6 +22,9 @@ public class Comm {
     static final int WATER = 8;
     static final int GUN = 9;
     static final int GUN_DESTROYED = 10;
+    static final int VERTICAL_SYMMETRY = 11;
+    static final int HORIZONTAL_SYMMETRY = 12;
+    static final int ROTATIONAL_SYMMETRY = 13;
 
     final int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3};
     final int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2};
@@ -36,7 +39,11 @@ public class Comm {
     boolean seenUnit = false;
     boolean terrestrial = false;
 
+    boolean vertical = true, horizontal = true, rotational = true;
+
     MapLocation water = null;
+
+    MapLocation HQLoc;
 
     int BYTECODE_LEFT = 300;
 
@@ -44,6 +51,9 @@ public class Comm {
 
     boolean imdrone;
     int w,h;
+
+    MapLocation latestMiningLoc;
+    int latestMiningLocTurn;
 
     Comm(RobotController rc){
         this.rc = rc;
@@ -86,14 +96,23 @@ public class Comm {
                             break;
                         case SOUP_TYPE:
                             int soup = t.getMessage()[1];
-                            if (soup > maxSoup) maxSoup = soup;
+                            if (soup > maxSoup){
+                                maxSoup = soup;
+                                code = t.getMessage()[0];
+                                latestMiningLoc = new MapLocation ((code >>> 16)&63, (code >>> 10)&63);
+                                latestMiningLocTurn = turn;
+                            }
                             break;
                         case BUILDING_TYPE:
                             int index = t.getMessage()[1];
                             if (0 <= index && index < buildings.length) ++buildings[index];
                             break;
                         case WALL:
-                            if (wallMes == null) wallMes = t.getMessage();
+                            if (wallMes == null){
+                                wallMes = t.getMessage();
+                                code = t.getMessage()[0];
+                                HQLoc = new MapLocation ((code >>> 16)&63, (code >>> 10)&63);
+                            }
                             break;
                         case EMERGENCY:
                             seenLandscaper = true;
@@ -120,6 +139,15 @@ public class Comm {
                                 map[droneLoc.x][droneLoc.y] = 0;
                                 if (imdrone) removeDanger(droneLoc);
                             }
+                            break;
+                        case HORIZONTAL_SYMMETRY:
+                            horizontal = false;
+                            break;
+                        case VERTICAL_SYMMETRY:
+                            vertical = false;
+                            break;
+                        case ROTATIONAL_SYMMETRY:
+                            rotational = false;
                             break;
                     }
                 }
@@ -154,10 +182,10 @@ public class Comm {
         sendMessage(HQ_TYPE, (loc.x << 6) | loc.y | (terrestrial << 12));
     }
 
-    void sendMaxSoup(int soup){
+    void sendMaxSoup(int soup, MapLocation loc){
         if (soup <= maxSoup) return;
         if (!upToDate()) return;
-        sendMessage(SOUP_TYPE, soup);
+        sendMessage(SOUP_TYPE | (loc.x << 16) | (loc.y << 10), soup);
     }
 
     void sendWall(int[] wall){
@@ -203,6 +231,76 @@ public class Comm {
         if (!upToDate()) return;
         if (map[loc.x][loc.y] == 1) return;
         sendMessage(GUN, (loc.x << 6) | loc.y);
+    }
+
+    void sendHorizontal(){
+        if (!upToDate()) return;
+        if (!horizontal) return;
+        sendMessage(HORIZONTAL_SYMMETRY, 0);
+    }
+
+    void sendVertical(){
+        if (!upToDate()) return;
+        if (!vertical) return;
+        sendMessage(VERTICAL_SYMMETRY, 0);
+    }
+
+    void sendRotational(){
+        if (!upToDate()) return;
+        if (!rotational) return;
+        sendMessage(ROTATIONAL_SYMMETRY, 0);
+    }
+
+    MapLocation getEnemyHQLoc(){
+        try {
+            if (EnemyHQLoc != null) return EnemyHQLoc;
+            if (!upToDate()) return null;
+            MapLocation hor = getHorizontal();
+            if (hor != null && rc.canSenseLocation(hor)) {
+                RobotInfo r = rc.senseRobotAtLocation(hor);
+                if (r == null || r.team == rc.getTeam() || r.type != RobotType.HQ) sendHorizontal();
+            }
+            MapLocation ver = getVertical();
+            if (ver != null && rc.canSenseLocation(ver)) {
+                RobotInfo r = rc.senseRobotAtLocation(ver);
+                if (r == null || r.team == rc.getTeam() || r.type != RobotType.HQ) sendVertical();
+            }
+            MapLocation rot = getRotational();
+            if (rot != null && rc.canSenseLocation(rot)) {
+                RobotInfo r = rc.senseRobotAtLocation(rot);
+                if (r == null || r.team == rc.getTeam() || r.type != RobotType.HQ) sendRotational();
+            }
+            if (!horizontal && !vertical) return rot;
+            if (!vertical && !rotational) return hor;
+            if (!rotational && !horizontal) return ver;
+        } catch(Throwable t){
+            t.printStackTrace();
+        }
+        return null;
+    }
+
+    MapLocation getHorizontal(){
+        if (HQLoc == null) return null;
+        if (!horizontal) return null;
+        return new MapLocation(w - HQLoc.x - 1, HQLoc.y);
+    }
+
+    MapLocation getVertical(){
+        if (HQLoc == null) return null;
+        if (!vertical) return null;
+        return new MapLocation( HQLoc.x, h - HQLoc.y - 1);
+    }
+
+    MapLocation getRotational(){
+        if (HQLoc == null) return null;
+        if (!rotational) return null;
+        return new MapLocation(w - HQLoc.x - 1, h - HQLoc.y - 1);
+    }
+
+    MapLocation getBestMiningLoc(){
+        if (latestMiningLoc == null) return null;
+        if (latestMiningLocTurn < rc.getRoundNum() - 5) return null;
+        return latestMiningLoc;
     }
 
     void sendGunDestroyed(MapLocation loc){
