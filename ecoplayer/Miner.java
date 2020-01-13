@@ -1,8 +1,11 @@
-package trumpplayer;
+package ecoplayer;
 
-import battlecode.common.*;
+import battlecode.common.Direction;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+import battlecode.common.RobotType;
 
-public class Miner extends MyRobot{
+public class Miner extends MyRobot {
 
     RobotController rc;
     Direction[] dirs = Direction.values();
@@ -34,7 +37,6 @@ public class Miner extends MyRobot{
         explore.checkComm(comm);
         //if (Constants.DEBUG == 1 && comm.EnemyHQLoc != null) rc.setIndicatorLine(rc.getLocation(), comm.EnemyHQLoc, 0, 255, 0);
 
-        //if (rc.getRoundNum() == 320 && buildingZone.finished()) buildingZone.debugPrint();
         boolean flee = false;
         if (bugPath.shouldFlee && WaterManager.closestSafeCell != null){
             bugPath.moveTo(WaterManager.closestSafeCell);
@@ -160,7 +162,6 @@ public class Miner extends MyRobot{
 
     void build(RobotType type){
         try {
-            if (Constants.DEBUG == 1) System.out.println("Trying to build " + type.name());
             Direction bestDir = null;
             int bestHeight = 0;
             Direction dir = Direction.NORTH;
@@ -169,13 +170,9 @@ public class Miner extends MyRobot{
                 if (rc.canBuildRobot(type, dir)) {
                     MapLocation newLoc = myLoc.add(dir);
                     if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) {
-                        if (buildingZone.map[newLoc.x][newLoc.y] != 1){
-                            dir = dir.rotateLeft();
-                            continue;
-                        }
-                        else rc.setIndicatorDot(newLoc, 0, 0, 255);
+                        if (buildingZone.map[newLoc.x][newLoc.y] != 1) continue;
                         int h = rc.senseElevation(newLoc);
-                        if (bestDir == null) {
+                        if (bestDir == null || h > bestHeight) {
                             bestDir = dir;
                             bestHeight = h;
                         }

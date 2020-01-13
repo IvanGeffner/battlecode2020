@@ -1,6 +1,9 @@
-package trumpplayer;
+package ecoplayer;
 
-import battlecode.common.*;
+import battlecode.common.Clock;
+import battlecode.common.Direction;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
 
 public class HQWall {
 

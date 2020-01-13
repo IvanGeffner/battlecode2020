@@ -1,9 +1,6 @@
-package trumpplayer;
+package ecoplayer;
 
 import battlecode.common.*;
-
-import java.rmi.server.ExportException;
-import java.util.ArrayList;
 
 public class Explore {
 
@@ -69,9 +66,9 @@ public class Explore {
     void updateMiner() {
         myLoc = rc.getLocation();
         checkUnits();
-        //if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
+        if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
         checkCells();
-        //if (Constants.DEBUG == 1) System.out.println("After checking cells: " + Clock.getBytecodeNum());
+        if (Constants.DEBUG == 1) System.out.println("After checking cells: " + Clock.getBytecodeNum());
     }
 
     void checkUnits() {
@@ -213,7 +210,7 @@ public class Explore {
             return;
         }
         if (enemyHQ != null) comm.sendHQLoc(enemyHQ);
-        if (totalSoupCount/Constants.SOUP_PER_MINER > comm.maxSoup/Constants.SOUP_PER_MINER && comm.maxSoup/Constants.SOUP_PER_MINER < Constants.MAX_MINERS){
+        if (totalSoupCount/ Constants.SOUP_PER_MINER > comm.maxSoup/ Constants.SOUP_PER_MINER && comm.maxSoup/ Constants.SOUP_PER_MINER < Constants.MAX_MINERS){
             comm.sendMaxSoup(totalSoupCount);
         } else if (BuildingManager.nVaporators(totalSoupCount) > BuildingManager.nVaporators(comm.maxSoup)) comm.sendMaxSoup(totalSoupCount);
     }

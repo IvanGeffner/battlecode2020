@@ -1,8 +1,8 @@
-package trumpplayer;
+package ecoplayer;
 
 import battlecode.common.*;
 
-public class HQ extends MyRobot{
+public class HQ extends MyRobot {
 
     RobotController rc;
     Direction[] nonZeroDirs = new Direction[]{Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTHWEST, Direction.WEST, Direction.NORTHWEST};
@@ -63,7 +63,7 @@ public class HQ extends MyRobot{
                 auxMiners = Constants.SPARE_SOUP_WORKERS.length - 1;
             if (rc.getTeamSoup() < RobotType.MINER.cost + Constants.SPARE_SOUP_WORKERS[auxMiners]) return false;
         }
-        if (miners <= comm.maxSoup/Constants.SOUP_PER_MINER) return true;
+        if (miners <= comm.maxSoup/ Constants.SOUP_PER_MINER) return true;
         return false;
     }
 

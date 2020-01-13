@@ -1,4 +1,4 @@
-package trumpplayer;
+package ecoplayer;
 
 public class Constants {
 

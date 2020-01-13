@@ -1,4 +1,4 @@
-package trumpplayer;
+package ecoplayer;
 
 import battlecode.common.Direction;
 import battlecode.common.MapLocation;

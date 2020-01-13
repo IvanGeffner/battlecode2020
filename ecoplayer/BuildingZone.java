@@ -1,8 +1,8 @@
-package trumpplayer;
+package ecoplayer;
 
-import battlecode.common.*;
-
-import java.util.Map;
+import battlecode.common.Clock;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
 
 public class BuildingZone {
 
@@ -33,7 +33,7 @@ public class BuildingZone {
     void update(int[] message){
         this.message = message;
         HQloc = new MapLocation((message[0] >>>16)&63, (message[0] >>>10)&63);
-        //if (Constants.DEBUG == 1) System.out.println(message[0] + " " + message[1] + " " + message[2] + " " + message[3] + " " + message[4] + " " + message[5]);
+        if (Constants.DEBUG == 1) System.out.println(message[0] + " " + message[1] + " " + message[2] + " " + message[3] + " " + message[4] + " " + message[5]);
     }
 
     void run(){
@@ -60,15 +60,10 @@ public class BuildingZone {
 
     void debugPrint(){
         if (Constants.DEBUG != 1) return;
-        System.out.println("Debug printing zone!");
         int i = X.length;
         while (--i >= 0){
             MapLocation loc = new MapLocation(HQloc.x + X[i], HQloc.y + Y[i]);
-            if (loc.x < 0) continue;
-            if (loc.x >= map.length) continue;
-            if (loc.y < 0) continue;
-            if (loc.y >= h) continue;
-            if (map[loc.x][loc.y] == 1) rc.setIndicatorDot(loc, 0, 0, 255);
+            if (rc.canSenseLocation(loc) && map[loc.x][loc.y] == 1) rc.setIndicatorDot(loc, 0, 0, 255);
         }
     }
 

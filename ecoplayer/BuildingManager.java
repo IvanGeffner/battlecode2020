@@ -1,4 +1,4 @@
-package trumpplayer;
+package ecoplayer;
 
 import battlecode.common.RobotType;
 
@@ -45,25 +45,5 @@ public class BuildingManager {
     static int nVaporators(int soup){
         int extraSoup = (soup%300) + (soup/300)*230;
         return extraSoup/RobotType.VAPORATOR.cost;
-    }
-
-    static boolean shouldBuildDrone(Comm comm){
-        if (!comm.upToDate()) return false;
-        RobotType r = getNextBuilding(comm);
-        if (r == null) return true;
-        if (r != RobotType.VAPORATOR) return false;
-        int vapor = comm.buildings[RobotType.VAPORATOR.ordinal()], drones = comm.buildings[RobotType.DELIVERY_DRONE.ordinal()];
-        switch(vapor){
-            case 0:
-                return false;
-            case 1:
-                return false;
-            case 2:
-                return drones < 1;
-            case 3:
-                return drones < 2;
-            default:
-                return drones < vapor;
-        }
     }
 }
