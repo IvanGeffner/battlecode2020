@@ -212,7 +212,7 @@ public class Explore {
             comm.sendEnemyUnit();
             return;
         }
-        if (enemyHQ != null) comm.sendHQLoc(enemyHQ);
+        if (enemyHQ != null) comm.sendHQLoc(enemyHQ, 1);
         if (totalSoupCount/Constants.SOUP_PER_MINER > comm.maxSoup/Constants.SOUP_PER_MINER && comm.maxSoup/Constants.SOUP_PER_MINER < Constants.MAX_MINERS){
             comm.sendMaxSoup(totalSoupCount);
         } else if (BuildingManager.nVaporators(totalSoupCount) > BuildingManager.nVaporators(comm.maxSoup)) comm.sendMaxSoup(totalSoupCount);

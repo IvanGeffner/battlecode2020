@@ -26,6 +26,7 @@ public class Comm {
     int MASK = 4534653;
     boolean seenLandscaper = false;
     boolean seenUnit = false;
+    boolean terrestrial = false;
 
     final int BYTECODE_LEFT = 300;
 
@@ -54,7 +55,8 @@ public class Comm {
                     switch(t.getMessage()[0]&1023){
                         case HQ_TYPE:
                             int code = t.getMessage()[1];
-                            EnemyHQLoc = new MapLocation((code >>> 6), (code&0x0000003F));
+                            EnemyHQLoc = new MapLocation((code >>> 6)&63, (code&63));
+                            terrestrial = (code >>> 12) > 0;
                             break;
                         case SOUP_TYPE:
                             int soup = t.getMessage()[1];
@@ -99,10 +101,11 @@ public class Comm {
         return false;
     }
 
-    void sendHQLoc(MapLocation loc){
-        if (EnemyHQLoc != null) return;
+    void sendHQLoc(MapLocation loc, int terrestrial){
+        if (this.terrestrial) return;
+        if (terrestrial == 0 && EnemyHQLoc != null) return;
         if (!upToDate()) return;
-        sendMessage(HQ_TYPE, (loc.x << 6) | loc.y);
+        sendMessage(HQ_TYPE, (loc.x << 6) | loc.y | (terrestrial << 12));
     }
 
     void sendMaxSoup(int soup){

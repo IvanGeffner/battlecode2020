@@ -23,6 +23,7 @@ public class Fullfillment extends MyRobot{
     }
 
     boolean shouldBuildDrone(){
+        if (visibleLandscaper()) return true;
         if (!comm.upToDate()) return false;
         return BuildingManager.shouldBuildDrone(comm);
     }
@@ -44,6 +45,14 @@ public class Fullfillment extends MyRobot{
         } catch(Throwable t){
             t.printStackTrace();
         }
+    }
+
+    boolean visibleLandscaper(){
+        RobotInfo[] visibleRobots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
+        for (RobotInfo r : visibleRobots){
+            if (r.getType() == RobotType.LANDSCAPER) return true;
+        }
+        return false;
     }
 
 }
