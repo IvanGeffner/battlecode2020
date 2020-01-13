@@ -28,6 +28,7 @@ public class Explore {
     int soupCont = 0;
     int totalSoupCount = 0;
     int diffSoupCount = 0;
+    MapLocation closestWater;
 
     MapLocation enemyHQ;
     Team myTeam;
@@ -145,6 +146,7 @@ public class Explore {
                         soups[(prevNumber >>> INDEX_OFFSET)] = null;
                         prevNumber = prevNumber & RESET_BASE;
                     }
+                    if (closestWater == null && rc.senseFlooding(newLoc)) closestWater = newLoc;
                 }
                 map[newLoc.x][newLoc.y] = prevNumber;
             }
@@ -204,6 +206,13 @@ public class Explore {
 
     void checkComm(Comm comm){
         //if (!comm.upToDate()) return; already checked there lol
+        try {
+            if (comm.water != null && rc.canSenseLocation(comm.water)) {
+                if (!rc.senseFlooding(comm.water)) comm.water = null;
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
         if (seenLandscaper && !comm.seenLandscaper){
             comm.sendLandscaper();
             return;
@@ -216,6 +225,7 @@ public class Explore {
         if (totalSoupCount/Constants.SOUP_PER_MINER > comm.maxSoup/Constants.SOUP_PER_MINER && comm.maxSoup/Constants.SOUP_PER_MINER < Constants.MAX_MINERS){
             comm.sendMaxSoup(totalSoupCount);
         } else if (BuildingManager.nVaporators(totalSoupCount) > BuildingManager.nVaporators(comm.maxSoup)) comm.sendMaxSoup(totalSoupCount);
+        if (closestWater != null) comm.sendWater(closestWater);
     }
 
 

@@ -19,21 +19,38 @@ public class Comm {
     static final int WALL = 5;
     static final int EMERGENCY = 6;
     static final int ENEMY_UNIT = 7;
+    static final int WATER = 8;
+    static final int GUN = 9;
+    static final int GUN_DESTROYED = 10;
 
     int[] buildings;
     int[] wallMes = null;
+
+    int[][] map, dangerMap;
 
     int MASK = 4534653;
     boolean seenLandscaper = false;
     boolean seenUnit = false;
     boolean terrestrial = false;
 
-    final int BYTECODE_LEFT = 300;
+    MapLocation water = null;
+
+    int BYTECODE_LEFT = 300;
+
+    final int BYTECODE_LEFT_DRONE = 1000;
+
+    boolean imdrone;
 
     Comm(RobotController rc){
         this.rc = rc;
+        imdrone = rc.getType() == RobotType.DELIVERY_DRONE;
         MASK += rc.getTeam().ordinal();
         buildings = new int[RobotType.values().length];
+        map = new int[rc.getMapWidth()][rc.getMapHeight()];
+        if (imdrone){
+            dangerMap = new int[rc.getMapWidth()][rc.getMapHeight()];
+            BYTECODE_LEFT = BYTECODE_LEFT_DRONE;
+        }
     }
 
     boolean singleMessage(){
@@ -55,7 +72,11 @@ public class Comm {
                     switch(t.getMessage()[0]&1023){
                         case HQ_TYPE:
                             int code = t.getMessage()[1];
-                            EnemyHQLoc = new MapLocation((code >>> 6)&63, (code&63));
+                            if (imdrone && EnemyHQLoc == null){
+                                EnemyHQLoc = new MapLocation((code >>> 6)&63, (code&63));
+                                addDanger(EnemyHQLoc);
+                            }
+                            else EnemyHQLoc = new MapLocation((code >>> 6) & 63, (code & 63));
                             terrestrial = (code >>> 12) > 0;
                             break;
                         case SOUP_TYPE:
@@ -74,6 +95,22 @@ public class Comm {
                             break;
                         case ENEMY_UNIT:
                             seenUnit = true;
+                            break;
+                        case WATER:
+                            code = t.getMessage()[1];
+                            water = new MapLocation((code >>> 6)&63, (code&63));
+                            break;
+                        case GUN:
+                            code = t.getMessage()[1];
+                            MapLocation droneLoc = new MapLocation((code >>> 6)&63, (code&63));
+                            map[droneLoc.x][droneLoc.y] = 1;
+                            if (imdrone) addDanger(droneLoc);
+                            break;
+                        case GUN_DESTROYED:
+                            code = t.getMessage()[1];
+                            droneLoc = new MapLocation((code >>> 6)&63, (code&63));
+                            map[droneLoc.x][droneLoc.y] = 0;
+                            if (imdrone) removeDanger(droneLoc);
                             break;
                     }
                 }
@@ -125,6 +162,12 @@ public class Comm {
         }
     }
 
+    void sendWater(MapLocation loc){
+        if (water != null) return;
+        if (!upToDate()) return;
+        sendMessage(WATER, (loc.x << 6) | loc.y);
+    }
+
     void sendMessage(int type, int code){
         try {
             int b = getBidValue();
@@ -166,6 +209,15 @@ public class Comm {
             t.printStackTrace();
         }
         return 1;
+    }
+
+    void addDanger(MapLocation loc){
+        int x = loc.x, y = loc.y;
+        
+    }
+
+    void removeDanger(MapLocation loc){
+
     }
 
 
