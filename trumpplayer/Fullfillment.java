@@ -25,7 +25,7 @@ public class Fullfillment extends MyRobot{
     boolean shouldBuildDrone(){
         if (visibleLandscaper()) return true;
         if (!comm.upToDate()) return false;
-        return BuildingManager.shouldBuildDrone(comm);
+        return BuildingManager.shouldBuildDrone(comm, rc);
     }
 
     void build (RobotType r){
@@ -33,7 +33,7 @@ public class Fullfillment extends MyRobot{
             Direction dir = Direction.NORTH;
             for (int i = 0; i < 8; ++i){
                 MapLocation loc = myLoc.add(dir);
-                if (rc.canSenseLocation(loc) && !rc.senseFlooding(loc)){
+                if (rc.canSenseLocation(loc)){
                     if (rc.canBuildRobot(r, dir)){
                         rc.buildRobot(r, dir);
                         comm.sendMessage(Comm.BUILDING_TYPE, r.ordinal());

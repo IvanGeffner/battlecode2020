@@ -162,7 +162,7 @@ public class Miner extends MyRobot{
         RobotType type = BuildingManager.getNextBuilding(comm);
         if (type == null) return;
         if (Constants.DEBUG == 1) System.out.println(type.name());
-        if (rc.getTeamSoup() < type.cost) return;
+        if (rc.getTeamSoup() <= type.cost) return;
         build(type);
     }
 
