@@ -26,6 +26,8 @@ public class ExploreDrone {
     RobotInfo closestMiner, closestLandscaper;
     Comm comm;
 
+    boolean[] cantMove;
+
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
     //int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2,0,-4,4,0,-1,1,-4,4,-4,4,-1,1,-3,3,-3,3,-2,2,-4,4,-4,4,-2,2};
@@ -68,6 +70,7 @@ public class ExploreDrone {
         try {
             closestMiner = null;
             closestLandscaper = null;
+            cantMove = new boolean[9];
             RobotInfo[] robots = rc.senseNearbyRobots();
             for (RobotInfo r : robots) {
                 if (!seenEnemy && r.team == rc.getTeam().opponent()) seenEnemy = true;
@@ -75,11 +78,12 @@ public class ExploreDrone {
                     case HQ:
                         if (r.team != rc.getTeam()){
                             enemyHQ = r.location;
-                            break;
+                            addDanger(r.location);
                         }
                         else{
                             HQloc = r.location;
                         }
+                        break;
                     case REFINERY:
                         break;
                     case LANDSCAPER:
@@ -96,6 +100,8 @@ public class ExploreDrone {
                     case NET_GUN:
                         if (r.team != rc.getTeam()){
                             comm.sendGun(r.location);
+                            addDanger(r.location);
+
                         }
 
                 }
@@ -103,6 +109,27 @@ public class ExploreDrone {
         } catch (Throwable t) {
             t.printStackTrace();
         }
+    }
+
+    void addDanger(MapLocation loc){
+        MapLocation newLoc = myLoc.add(Direction.NORTH);
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.NORTH.ordinal()] = true;
+        newLoc = myLoc.add(Direction.NORTHWEST);
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.NORTHWEST.ordinal()] = true;
+        newLoc = myLoc.add(Direction.WEST);
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.WEST.ordinal()] = true;
+        newLoc = myLoc.add(Direction.SOUTHWEST);
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.SOUTHWEST.ordinal()] = true;
+        newLoc = myLoc.add(Direction.SOUTH);
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.SOUTH.ordinal()] = true;
+        newLoc = myLoc.add(Direction.SOUTHEAST);
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.SOUTHEAST.ordinal()] = true;
+        newLoc = myLoc.add(Direction.EAST);
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.EAST.ordinal()] = true;
+        newLoc = myLoc.add(Direction.NORTHEAST);
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.NORTHEAST.ordinal()] = true;
+        newLoc = myLoc.add(Direction.CENTER);
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.CENTER.ordinal()] = true;
     }
 
     void checkCells() {

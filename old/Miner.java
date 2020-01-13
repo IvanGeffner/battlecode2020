@@ -1,6 +1,9 @@
-package trumpplayer;
+package old;
 
-import battlecode.common.*;
+import battlecode.common.Direction;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+import battlecode.common.RobotType;
 
 public class Miner extends MyRobot{
 
@@ -29,12 +32,9 @@ public class Miner extends MyRobot{
     void play(){
         if (comm.singleMessage()) comm.readMessages();
         waterManager.update();
-        if (!builder) explore.updateMiner();
-        else explore.checkUnits();
-        explore.checkComm();
         bugPath.update();
-        if (explore.dronesFound) bugPath.updateDrones(explore.minDist);
-        if (Constants.DEBUG == 1) System.out.println("Bytecode post bugPath update " + Clock.getBytecodeNum());
+        if (!builder) explore.updateMiner();
+        explore.checkComm();
         //if (Constants.DEBUG == 1 && comm.EnemyHQLoc != null) rc.setIndicatorLine(rc.getLocation(), comm.EnemyHQLoc, 0, 255, 0);
 
         //if (rc.getRoundNum() == 320 && buildingZone.finished()) buildingZone.debugPrint();
@@ -43,16 +43,13 @@ public class Miner extends MyRobot{
             bugPath.moveTo(WaterManager.closestSafeCell);
             flee = true;
         }
-        if (Constants.DEBUG == 1) System.out.println("Bytecode post trying to flee water " + Clock.getBytecodeNum());
         Direction miningDir = getMiningDir();
-        if (miningDir != null && bugPath.canMoveArray[Direction.CENTER.ordinal()]) {
+        if (miningDir != null) {
             tryBuildRefinery();
             tryMine(miningDir);
         }
-        if (Constants.DEBUG == 1) System.out.println("Bytecode post mining " + Clock.getBytecodeNum());
         tryDeposit();
         tryBuilding();
-        if (Constants.DEBUG == 1) System.out.println("Bytecode post deposit/build " + Clock.getBytecodeNum());
        if (!flee){
            MapLocation target;
            if (!builder) {
@@ -62,7 +59,6 @@ public class Miner extends MyRobot{
                 target = explore.HQloc;
            }
            bugPath.moveTo(target);
-           if (rc.isReady() && !bugPath.canMoveArray[Direction.CENTER.ordinal()]) bugPath.moveSafe();
        }
        comm.readMessages();
        if (comm.wallMes != null) buildingZone.update(comm.wallMes);
@@ -158,7 +154,6 @@ public class Miner extends MyRobot{
         if (!rc.isReady()) return;
         if (!comm.upToDate()) return;
         if (!buildingZone.finished()) return;
-        if (rc.getLocation().distanceSquaredTo(explore.HQloc) > Constants.DIST_TO_BUILD) return;
         RobotType type = BuildingManager.getNextBuilding(comm);
         if (type == null) return;
         if (Constants.DEBUG == 1) System.out.println(type.name());

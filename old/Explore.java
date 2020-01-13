@@ -1,9 +1,6 @@
-package trumpplayer;
+package old;
 
 import battlecode.common.*;
-
-import java.rmi.server.ExportException;
-import java.util.ArrayList;
 
 public class Explore {
 
@@ -30,7 +27,6 @@ public class Explore {
     int totalSoupCount = 0;
     int diffSoupCount = 0;
     MapLocation closestWater;
-    boolean dronesFound = false;
 
     MapLocation enemyHQ;
     Team myTeam;
@@ -38,7 +34,7 @@ public class Explore {
     boolean seenLandscaper = false, seenEnemy = false;
     Comm comm;
 
-    //boolean cantMove[];
+    boolean cantMove[];
     int[] minDist;
 
 
@@ -77,9 +73,9 @@ public class Explore {
     void updateMiner() {
         myLoc = rc.getLocation();
         checkUnits();
-        if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
+        //if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
         checkCells();
-        if (Constants.DEBUG == 1) System.out.println("After checking cells: " + Clock.getBytecodeNum());
+        //if (Constants.DEBUG == 1) System.out.println("After checking cells: " + Clock.getBytecodeNum());
     }
 
     void checkUnits() {
@@ -88,19 +84,8 @@ public class Explore {
                 RobotInfo r = rc.senseRobotAtLocation(closestRefineryLoc);
                 if (r != null || r.team != rc.getTeam() || r.type != RobotType.REFINERY) closestRefineryLoc = HQloc;
             }
-            //cantMove = new boolean[9];
+            cantMove = new boolean[9];
             minDist = new int[9];
-            minDist[0] = Constants.INF;
-            minDist[1] = Constants.INF;
-            minDist[2] = Constants.INF;
-            minDist[3] = Constants.INF;
-            minDist[4] = Constants.INF;
-            minDist[5] = Constants.INF;
-            minDist[6] = Constants.INF;
-            minDist[7] = Constants.INF;
-            minDist[8] = Constants.INF;
-            dronesFound = false;
-
             RobotInfo[] robots = rc.senseNearbyRobots();
             int bestDist = myLoc.distanceSquaredTo(closestRefineryLoc);
             for (RobotInfo r : robots) {
@@ -109,8 +94,8 @@ public class Explore {
                     case HQ:
                         if (r.team != rc.getTeam()){
                             enemyHQ = r.location;
+                            break;
                         }
-                        break;
                     case REFINERY:
                         if (r.team == rc.getTeam()) {
                             int dist = myLoc.distanceSquaredTo(r.location);
@@ -124,15 +109,10 @@ public class Explore {
                         if (r.team != rc.getTeam()){
                             seenLandscaper = true;
                         }
-                        break;
                     case NET_GUN:
-                        if (r.team != rc.getTeam()) comm.sendGun(r.location);
+                        comm.sendGun(r.location);
                         break;
                     case DELIVERY_DRONE:
-                        if (r.team != rc.getTeam()){
-                            dronesFound = true;
-                            addDanger(r.location);
-                        }
                         break;
                 }
             }
@@ -184,37 +164,6 @@ public class Explore {
         }
     }
 
-    void addDanger(MapLocation loc){
-        MapLocation newLoc = myLoc.add(Direction.NORTH);
-        int d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.NORTH.ordinal()] > d) minDist[Direction.NORTH.ordinal()] = d;
-        newLoc = myLoc.add(Direction.NORTHWEST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.NORTHWEST.ordinal()] > d) minDist[Direction.NORTHWEST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.WEST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.WEST.ordinal()] > d) minDist[Direction.WEST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.SOUTHWEST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.SOUTHWEST.ordinal()] > d) minDist[Direction.SOUTHWEST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.SOUTH);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.SOUTH.ordinal()] > d) minDist[Direction.SOUTH.ordinal()] = d;
-        newLoc = myLoc.add(Direction.SOUTHEAST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.SOUTHEAST.ordinal()] > d) minDist[Direction.SOUTHEAST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.EAST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.EAST.ordinal()] > d) minDist[Direction.EAST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.NORTHEAST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.NORTHEAST.ordinal()] > d) minDist[Direction.NORTHEAST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.CENTER);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.CENTER.ordinal()] > d) minDist[Direction.CENTER.ordinal()] = d;
-
-    }
-
     MapLocation getBestTarget() {
         if (closestSoup != null) return closestSoup;
         int bestDist = Constants.INF;
@@ -239,7 +188,6 @@ public class Explore {
     }
 
     MapLocation exploreTarget() {
-        if (Constants.DEBUG == 1) System.out.println("Trying to go for explore target!  "  + Clock.getBytecodeNum());
         if (exploreTarget != null) {
             if (map[exploreTarget.x][exploreTarget.y] > 0) exploreTarget = null;
         }
@@ -260,7 +208,6 @@ public class Explore {
                 exploreTarget = newLoc;
             }
         }
-        if (exploreTarget == null) if (Constants.DEBUG == 1) System.out.println("null explore Target!");
         return exploreTarget;
     }
 
@@ -286,7 +233,7 @@ public class Explore {
             return;
         }
         if (enemyHQ != null) comm.sendHQLoc(enemyHQ, 1);
-        if (totalSoupCount/Constants.SOUP_PER_MINER > comm.maxSoup/Constants.SOUP_PER_MINER && comm.maxSoup/Constants.SOUP_PER_MINER < Constants.MAX_MINERS){
+        if (totalSoupCount/ Constants.SOUP_PER_MINER > comm.maxSoup/ Constants.SOUP_PER_MINER && comm.maxSoup/ Constants.SOUP_PER_MINER < Constants.MAX_MINERS){
             comm.sendMaxSoup(totalSoupCount);
         } else if (BuildingManager.nVaporators(totalSoupCount) > BuildingManager.nVaporators(comm.maxSoup)) comm.sendMaxSoup(totalSoupCount);
         if (closestWater != null) comm.sendWater(closestWater);

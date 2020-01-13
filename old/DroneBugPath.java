@@ -1,4 +1,4 @@
-package trumpplayer;
+package old;
 
 import battlecode.common.Direction;
 import battlecode.common.MapLocation;
@@ -6,12 +6,14 @@ import battlecode.common.RobotController;
 
 import java.util.HashSet;
 
-public class BugPath {
+public class DroneBugPath {
 
     RobotController rc;
+    Comm comm;
 
-    BugPath(RobotController rc){
+    DroneBugPath(RobotController rc, Comm comm){
         this.rc = rc;
+        this.comm = comm;
     }
 
     Boolean rotateRight = null; //if I should rotate right or left
@@ -21,45 +23,26 @@ public class BugPath {
     MapLocation minLocationToTarget = null;
     MapLocation prevTarget = null; //previous target
     Direction[] dirs = Direction.values();
-    boolean shouldFlee = false;
-    boolean surroundedByWater = false;
-    int turnsFleeing = 0;
     HashSet<Integer> states = new HashSet<>();
 
     MapLocation myLoc;
-    boolean[] canMoveArray;
-    boolean[] flooded;
+    boolean[] canMoveArray, cantMove;
     int round;
 
     int turnsMovingToObstacle = 0;
     final int MAX_TURNS_MOVING_TO_OBSTACLE = 2;
 
     final int MIN_DIST_RESET = 3;
-    int[] minDists;
 
     void update(){
         if (!rc.isReady()) return;
         myLoc = rc.getLocation();
         round = rc.getRoundNum();
         updateArray();
-        checkFleeStatus();
-        //if (Constants.DEBUG == 1) debugMovement();
     }
 
-    void updateDrones(int[] minDists){
-        this.minDists = minDists;
-        checkArrayWithDrones();
-    }
-
-    void debugMovement(){
-        try{
-            for (Direction dir : dirs){
-                MapLocation newLoc = myLoc.add(dir);
-                if (rc.canSenseLocation(newLoc) && canMoveArray[dir.ordinal()]) rc.setIndicatorDot(newLoc, 0, 0, 255);
-            }
-        } catch (Throwable t){
-            t.printStackTrace();
-        }
+    void updateGuns(boolean[] cantMove){
+        this.cantMove = cantMove;
     }
 
     void moveTo(MapLocation target){
@@ -67,6 +50,8 @@ public class BugPath {
         if (target != null && Constants.DEBUG == 1) rc.setIndicatorDot(target, 255, 0, 0);
         if (!rc.isReady()) return;
         if (target == null) return;
+
+        update();
 
 
         //different target? ==> previous data does not help!
@@ -95,11 +80,7 @@ public class BugPath {
 
         //If I'm at a minimum distance to the target, I'm free!
         int d = myLoc.distanceSquaredTo(target);
-        if (d == 0){
-            if (canMoveArray[Direction.CENTER.ordinal()]) return;
-            moveSafe();
-            return;
-        }
+        if (d == 0) return;
         if (d <= minDistToTarget){
             resetPathfinding();
             minDistToTarget = d;
@@ -183,124 +164,17 @@ public class BugPath {
 
     void updateArray(){
         canMoveArray = new boolean[9];
-        flooded = new boolean[9];
-        surroundedByWater = false;
         try {
-            boolean foundFlooding = false;
-            boolean blind = rc.getCurrentSensorRadiusSquared() < 2;
-            boolean canMove = false;
             for (Direction dir : dirs) {
-                if (blind){
-                    if (dir == Direction.CENTER || rc.canMove(dir)) {
-                        canMoveArray[dir.ordinal()] = true;
-                        canMove = true;
-                    }
-                }
-                else {
+                if (rc.canMove(dir)) {
                     MapLocation newLoc = myLoc.add(dir);
-                    if (!rc.canSenseLocation(newLoc)) continue;
-                    if (isFlooded(newLoc)) {
-                        flooded[dir.ordinal()] = true;
-                        foundFlooding = true;
-                    }
-                    if ((dir == Direction.CENTER || rc.canMove(dir)) && !rc.senseFlooding(newLoc) && !flooded[dir.ordinal()]){
-                        canMoveArray[dir.ordinal()] = true;
-                        canMove = true;
-                    }
+                    if (comm.dangerMap[newLoc.x][newLoc.y] <= 0 && !cantMove[dir.ordinal()]) canMoveArray[dir.ordinal()] = true;
                 }
             }
-            if (!canMove && !blind){
-                for (Direction dir : dirs){
-                    MapLocation newLoc = myLoc.add(dir);
-                    if ((dir == Direction.CENTER || rc.canMove(dir)) && !rc.senseFlooding(newLoc)) canMoveArray[dir.ordinal()] = true;
-                }
-            }
-            if (foundFlooding) checkFlee();
         } catch (Throwable t){
             t.printStackTrace();
         }
 
-    }
-
-    void checkArrayWithDrones(){
-        int maxMinDist = 0;
-        int i = 9;
-        while (--i >= 0){
-            if (canMoveArray[i] && minDists[i] > maxMinDist) maxMinDist = minDists[i];
-        }
-        if (maxMinDist >= Constants.MIN_DIST_FLEE) maxMinDist = Constants.MIN_DIST_FLEE;
-        if (Constants.DEBUG == 1) System.out.println("MAXMIN DIST " + maxMinDist);
-        i = 9;
-        while (--i >= 0){
-            if (canMoveArray[i] && minDists[i] < maxMinDist){
-                canMoveArray[i] = false;
-                System.out.println("Cant move!! " + dirs[i].name());
-            }
-        }
-    }
-
-    void moveSafe(){
-        int i = 9;
-        while (--i >= 0){
-            if (canMoveArray[i]){
-                myMove(dirs[i]);
-                return;
-            }
-        }
-    }
-
-    void checkFlee(){
-        try {
-            if (!shouldFlee) {
-                if (rc.senseElevation(myLoc) <= WaterManager.waterLevelPlus){
-                    shouldFlee = true;
-                    turnsFleeing = 0;
-                }
-            }
-        } catch(Throwable t){
-            t.printStackTrace();
-        }
-    }
-
-    void checkFleeStatus(){
-        try {
-            if (shouldFlee) {
-                if (rc.senseElevation(myLoc) > WaterManager.waterLevelPlus){
-                    if (turnsFleeing >= WaterManager.MIN_SAFE_TURNS){
-                        //if (surroundedByWater && turnsFleeing < WaterManager.MIN_SAFE_TURNS) turnsFleeing = WaterManager.MIN_SAFE_TURNS-1;
-                        shouldFlee = false;
-                        turnsFleeing = 0;
-                    } else turnsFleeing++;
-                }
-            }
-        } catch(Throwable t){
-            t.printStackTrace();
-        }
-    }
-
-    boolean isFlooded (MapLocation loc){
-        try {
-            if (rc.senseElevation(loc) > WaterManager.waterLevelPlus) return false;
-            MapLocation newLoc = loc.add(Direction.NORTH);
-            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
-            newLoc = loc.add(Direction.NORTHEAST);
-            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
-            newLoc = loc.add(Direction.EAST);
-            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
-            newLoc = loc.add(Direction.SOUTHEAST);
-            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
-            newLoc = loc.add(Direction.SOUTH);
-            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
-            newLoc = loc.add(Direction.SOUTHWEST);
-            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
-            newLoc = loc.add(Direction.WEST);
-            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
-            newLoc = loc.add(Direction.NORTHWEST);
-            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
-        } catch (Throwable t){
-            t.printStackTrace();
-        }
-        return false;
     }
 
     boolean tryGreedyMove(){

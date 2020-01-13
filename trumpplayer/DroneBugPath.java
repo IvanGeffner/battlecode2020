@@ -26,7 +26,7 @@ public class DroneBugPath {
     HashSet<Integer> states = new HashSet<>();
 
     MapLocation myLoc;
-    boolean[] canMoveArray;
+    boolean[] canMoveArray, cantMove;
     int round;
 
     int turnsMovingToObstacle = 0;
@@ -39,6 +39,10 @@ public class DroneBugPath {
         myLoc = rc.getLocation();
         round = rc.getRoundNum();
         updateArray();
+    }
+
+    void updateGuns(boolean[] cantMove){
+        this.cantMove = cantMove;
     }
 
     void moveTo(MapLocation target){
@@ -164,7 +168,7 @@ public class DroneBugPath {
             for (Direction dir : dirs) {
                 if (rc.canMove(dir)) {
                     MapLocation newLoc = myLoc.add(dir);
-                    if (comm.dangerMap[newLoc.x][newLoc.y] <= 0) canMoveArray[dir.ordinal()] = true;
+                    if (comm.dangerMap[newLoc.x][newLoc.y] <= 0 && !cantMove[dir.ordinal()]) canMoveArray[dir.ordinal()] = true;
                 }
             }
         } catch (Throwable t){

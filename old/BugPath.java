@@ -1,4 +1,4 @@
-package trumpplayer;
+package old;
 
 import battlecode.common.Direction;
 import battlecode.common.MapLocation;
@@ -35,7 +35,6 @@ public class BugPath {
     final int MAX_TURNS_MOVING_TO_OBSTACLE = 2;
 
     final int MIN_DIST_RESET = 3;
-    int[] minDists;
 
     void update(){
         if (!rc.isReady()) return;
@@ -43,23 +42,6 @@ public class BugPath {
         round = rc.getRoundNum();
         updateArray();
         checkFleeStatus();
-        //if (Constants.DEBUG == 1) debugMovement();
-    }
-
-    void updateDrones(int[] minDists){
-        this.minDists = minDists;
-        checkArrayWithDrones();
-    }
-
-    void debugMovement(){
-        try{
-            for (Direction dir : dirs){
-                MapLocation newLoc = myLoc.add(dir);
-                if (rc.canSenseLocation(newLoc) && canMoveArray[dir.ordinal()]) rc.setIndicatorDot(newLoc, 0, 0, 255);
-            }
-        } catch (Throwable t){
-            t.printStackTrace();
-        }
     }
 
     void moveTo(MapLocation target){
@@ -95,11 +77,7 @@ public class BugPath {
 
         //If I'm at a minimum distance to the target, I'm free!
         int d = myLoc.distanceSquaredTo(target);
-        if (d == 0){
-            if (canMoveArray[Direction.CENTER.ordinal()]) return;
-            moveSafe();
-            return;
-        }
+        if (d == 0) return;
         if (d <= minDistToTarget){
             resetPathfinding();
             minDistToTarget = d;
@@ -191,7 +169,7 @@ public class BugPath {
             boolean canMove = false;
             for (Direction dir : dirs) {
                 if (blind){
-                    if (dir == Direction.CENTER || rc.canMove(dir)) {
+                    if (rc.canMove(dir)) {
                         canMoveArray[dir.ordinal()] = true;
                         canMove = true;
                     }
@@ -203,7 +181,7 @@ public class BugPath {
                         flooded[dir.ordinal()] = true;
                         foundFlooding = true;
                     }
-                    if ((dir == Direction.CENTER || rc.canMove(dir)) && !rc.senseFlooding(newLoc) && !flooded[dir.ordinal()]){
+                    if (rc.canMove(dir) && !rc.senseFlooding(newLoc) && !flooded[dir.ordinal()]){
                         canMoveArray[dir.ordinal()] = true;
                         canMove = true;
                     }
@@ -212,7 +190,7 @@ public class BugPath {
             if (!canMove && !blind){
                 for (Direction dir : dirs){
                     MapLocation newLoc = myLoc.add(dir);
-                    if ((dir == Direction.CENTER || rc.canMove(dir)) && !rc.senseFlooding(newLoc)) canMoveArray[dir.ordinal()] = true;
+                    if (rc.canMove(dir) && !rc.senseFlooding(newLoc)) canMoveArray[dir.ordinal()] = true;
                 }
             }
             if (foundFlooding) checkFlee();
@@ -220,33 +198,6 @@ public class BugPath {
             t.printStackTrace();
         }
 
-    }
-
-    void checkArrayWithDrones(){
-        int maxMinDist = 0;
-        int i = 9;
-        while (--i >= 0){
-            if (canMoveArray[i] && minDists[i] > maxMinDist) maxMinDist = minDists[i];
-        }
-        if (maxMinDist >= Constants.MIN_DIST_FLEE) maxMinDist = Constants.MIN_DIST_FLEE;
-        if (Constants.DEBUG == 1) System.out.println("MAXMIN DIST " + maxMinDist);
-        i = 9;
-        while (--i >= 0){
-            if (canMoveArray[i] && minDists[i] < maxMinDist){
-                canMoveArray[i] = false;
-                System.out.println("Cant move!! " + dirs[i].name());
-            }
-        }
-    }
-
-    void moveSafe(){
-        int i = 9;
-        while (--i >= 0){
-            if (canMoveArray[i]){
-                myMove(dirs[i]);
-                return;
-            }
-        }
     }
 
     void checkFlee(){

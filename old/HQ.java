@@ -1,4 +1,4 @@
-package trumpplayer;
+package old;
 
 import battlecode.common.*;
 
@@ -39,9 +39,10 @@ public class HQ extends MyRobot{
         if (comm.singleMessage()) comm.readMessages();
         if (comm.maxSoup > maxSoup) maxSoup = comm.maxSoup;
         getDirToSoup();
-        if (shouldBuildMiner()) buildMiner(false);
+        if (shouldBuildMiner()) buildMiner();
         if (shouldBuildBuilder()){
-            buildMiner(true);
+            buildMiner();
+            comm.sendMessage(comm.BUILDER_TYPE, 0);
         }
         comm.readMessages();
         //if (buildingZone.finished()) buildingZone.debugPrint();
@@ -66,7 +67,7 @@ public class HQ extends MyRobot{
         return false;
     }
 
-    void buildMiner(boolean send){
+    void buildMiner(){
         try {
             if (rc.getTeamSoup() < RobotType.MINER.cost) return;
             Direction dir = dirToSoup;
@@ -75,7 +76,6 @@ public class HQ extends MyRobot{
                 if (rc.canBuildRobot(RobotType.MINER, dir)){
                     rc.buildRobot(RobotType.MINER, dir);
                     ++miners;
-                    if (send) comm.sendMessage(comm.BUILDER_TYPE, 0);
                     return;
                 }
                 dir = dir.rotateLeft();

@@ -1,4 +1,4 @@
-package trumpplayer;
+package old;
 
 public class Constants {
 
@@ -9,6 +9,5 @@ public class Constants {
     static int DIST_TO_BUILD = 48;
     static int SAFETY_SOUP = 5;
     static int[] SPARE_SOUP_WORKERS = {0,0,0,10,20,40,80,150,250};
-    static int MIN_DIST_FLEE = 25;
 
 }

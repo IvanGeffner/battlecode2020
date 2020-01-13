@@ -1,8 +1,11 @@
-package trumpplayer;
+package old;
 
-import battlecode.common.*;
+import battlecode.common.Direction;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+import battlecode.common.RobotInfo;
 
-public class Drone extends MyRobot{
+public class Drone extends MyRobot {
 
     RobotController rc;
     Comm comm;

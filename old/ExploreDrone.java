@@ -1,183 +1,110 @@
-package trumpplayer;
+package old;
 
 import battlecode.common.*;
 
-import java.rmi.server.ExportException;
-import java.util.ArrayList;
+public class ExploreDrone {
 
-public class Explore {
-
-    final int MAX_SOUP_ARRAY = 50;
-    final int SOUP_BIT = 2;
     final int EXPLORE_BIT = 1;
-    final int INDEX_OFFSET = 2;
-    final int RESET_BASE = 1;
-    final int SOUPS_CHECKED = 8;
-    final int MAX_EXPLORE_TIME = 1500;
     int[][] map;
     RobotController rc;
-    MapLocation closestSoup;
-    MapLocation closestRefineryLoc;
     MapLocation HQloc;
     Direction[] dirs = Direction.values();
-    MapLocation[] soups = new MapLocation[MAX_SOUP_ARRAY];
     int currentIndex = 0;
     MapLocation myLoc;
     MapLocation exploreTarget = null;
     int H, W;
     Direction[][] dirPath;
-    int soupCont = 0;
-    int totalSoupCount = 0;
-    int diffSoupCount = 0;
-    MapLocation closestWater;
-    boolean dronesFound = false;
+    MapLocation closestWater = null;
 
     MapLocation enemyHQ;
     Team myTeam;
 
+    final int MAX_EXPLORE_TIME = 1500;
+
     boolean seenLandscaper = false, seenEnemy = false;
+
+    RobotInfo closestMiner, closestLandscaper;
     Comm comm;
 
-    //boolean cantMove[];
-    int[] minDist;
+    boolean[] cantMove;
 
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
     //int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2,0,-4,4,0,-1,1,-4,4,-4,4,-1,1,-3,3,-3,3,-2,2,-4,4,-4,4,-2,2};
 
-    Explore(RobotController rc, Comm comm) {
+    ExploreDrone(RobotController rc, Comm comm) {
         this.rc = rc;
         this.comm = comm;
         myTeam = rc.getTeam();
         H = rc.getMapHeight();
         W = rc.getMapWidth();
         map = new int[W][H];
-        findHQ();
-        closestRefineryLoc = HQloc;
         dirPath = new Direction[36][0];
         fillDirPath();
     }
 
-    void findHQ() {
-        try {
-            MapLocation myLoc = rc.getLocation();
-            for (Direction dir : dirs) {
-                MapLocation newLoc = myLoc.add(dir);
-                RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                if (r != null && r.type == RobotType.HQ && r.team == rc.getTeam()) {
-                    HQloc = newLoc;
-                    return;
-                }
+
+    void update() {
+        boolean shouldCheckCells;
+        MapLocation nextLoc = rc.getLocation();
+        shouldCheckCells = myLoc == null || (myLoc.distanceSquaredTo(nextLoc) == 0);
+        myLoc = nextLoc;
+        checkWater();
+        checkUnits();
+        if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
+        if (shouldCheckCells) checkCells();
+        if (Constants.DEBUG == 1) System.out.println("After checking cells: " + Clock.getBytecodeNum());
+    }
+
+    void checkWater(){
+        try{
+            if (closestWater != null && rc.canSenseLocation(closestWater)) {
+                if (!rc.senseFlooding(closestWater)) closestWater = null;
             }
-        } catch (Throwable t) {
+        } catch (Throwable t){
             t.printStackTrace();
         }
     }
 
-    void updateMiner() {
-        myLoc = rc.getLocation();
-        checkUnits();
-        if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
-        checkCells();
-        if (Constants.DEBUG == 1) System.out.println("After checking cells: " + Clock.getBytecodeNum());
-    }
-
     void checkUnits() {
         try {
-            if (rc.canSenseLocation(closestRefineryLoc)) {
-                RobotInfo r = rc.senseRobotAtLocation(closestRefineryLoc);
-                if (r != null || r.team != rc.getTeam() || r.type != RobotType.REFINERY) closestRefineryLoc = HQloc;
-            }
-            //cantMove = new boolean[9];
-            minDist = new int[9];
-            minDist[0] = Constants.INF;
-            minDist[1] = Constants.INF;
-            minDist[2] = Constants.INF;
-            minDist[3] = Constants.INF;
-            minDist[4] = Constants.INF;
-            minDist[5] = Constants.INF;
-            minDist[6] = Constants.INF;
-            minDist[7] = Constants.INF;
-            minDist[8] = Constants.INF;
-            dronesFound = false;
-
+            closestMiner = null;
+            closestLandscaper = null;
+            cantMove = new boolean[9];
             RobotInfo[] robots = rc.senseNearbyRobots();
-            int bestDist = myLoc.distanceSquaredTo(closestRefineryLoc);
             for (RobotInfo r : robots) {
                 if (!seenEnemy && r.team == rc.getTeam().opponent()) seenEnemy = true;
                 switch (r.type) {
                     case HQ:
                         if (r.team != rc.getTeam()){
                             enemyHQ = r.location;
+                            addDanger(r.location);
+                        }
+                        else{
+                            HQloc = r.location;
                         }
                         break;
                     case REFINERY:
-                        if (r.team == rc.getTeam()) {
-                            int dist = myLoc.distanceSquaredTo(r.location);
-                            if (dist < bestDist) {
-                                bestDist = dist;
-                                closestRefineryLoc = r.location;
-                            }
-                        }
                         break;
                     case LANDSCAPER:
                         if (r.team != rc.getTeam()){
                             seenLandscaper = true;
+                            if (closestLandscaper == null || myLoc.distanceSquaredTo(closestLandscaper.location) > myLoc.distanceSquaredTo(r.location)) closestLandscaper = r;
+                        }
+                        break;
+                    case MINER:
+                        if (r.team != rc.getTeam()){
+                            if (closestLandscaper == null || myLoc.distanceSquaredTo(closestMiner.location) > myLoc.distanceSquaredTo(r.location)) closestMiner = r;
                         }
                         break;
                     case NET_GUN:
-                        if (r.team != rc.getTeam()) comm.sendGun(r.location);
-                        break;
-                    case DELIVERY_DRONE:
                         if (r.team != rc.getTeam()){
-                            dronesFound = true;
+                            comm.sendGun(r.location);
                             addDanger(r.location);
-                        }
-                        break;
-                }
-            }
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
-    }
 
-    void checkCells() {
-        int sight = rc.getCurrentSensorRadiusSquared();
-        closestSoup = null;
-        soupCont = 0;
-        MapLocation newLoc = rc.getLocation();
-        Direction[] dirArray = dirPath[sight];
-        int i = dirArray.length;
-        boolean foundSafe = false;
-        try {
-            while (--i >= 0) {
-                newLoc = newLoc.add(dirArray[i]);
-                if (!rc.canSenseLocation(newLoc)) continue;
-                int prevNumber = map[newLoc.x][newLoc.y] | EXPLORE_BIT;
-                if (!foundSafe && rc.senseElevation(newLoc) > WaterManager.waterLevelPlus){
-                    foundSafe = true;
-                    WaterManager.closestSafeCell = newLoc;
-                    WaterManager.height = rc.senseElevation(newLoc);
+                        }
+
                 }
-                int soup = rc.senseSoup(newLoc);
-                if (soup > 0 && !rc.senseFlooding(newLoc)) {
-                    if (closestSoup == null) closestSoup = newLoc;
-                    soupCont += soup;
-                    if ((prevNumber & SOUP_BIT) == 0) {
-                        prevNumber = prevNumber | SOUP_BIT | (currentIndex << INDEX_OFFSET);
-                        soups[currentIndex] = newLoc;
-                        currentIndex = (currentIndex + 1) % MAX_SOUP_ARRAY;
-                        totalSoupCount += soup;
-                        ++diffSoupCount;
-                    }
-                } else {
-                    if ((prevNumber & SOUP_BIT) > 0) {
-                        soups[(prevNumber >>> INDEX_OFFSET)] = null;
-                        prevNumber = prevNumber & RESET_BASE;
-                    }
-                    if (closestWater == null && rc.senseFlooding(newLoc)) closestWater = newLoc;
-                }
-                map[newLoc.x][newLoc.y] = prevNumber;
             }
         } catch (Throwable t) {
             t.printStackTrace();
@@ -186,36 +113,52 @@ public class Explore {
 
     void addDanger(MapLocation loc){
         MapLocation newLoc = myLoc.add(Direction.NORTH);
-        int d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.NORTH.ordinal()] > d) minDist[Direction.NORTH.ordinal()] = d;
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.NORTH.ordinal()] = true;
         newLoc = myLoc.add(Direction.NORTHWEST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.NORTHWEST.ordinal()] > d) minDist[Direction.NORTHWEST.ordinal()] = d;
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.NORTHWEST.ordinal()] = true;
         newLoc = myLoc.add(Direction.WEST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.WEST.ordinal()] > d) minDist[Direction.WEST.ordinal()] = d;
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.WEST.ordinal()] = true;
         newLoc = myLoc.add(Direction.SOUTHWEST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.SOUTHWEST.ordinal()] > d) minDist[Direction.SOUTHWEST.ordinal()] = d;
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.SOUTHWEST.ordinal()] = true;
         newLoc = myLoc.add(Direction.SOUTH);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.SOUTH.ordinal()] > d) minDist[Direction.SOUTH.ordinal()] = d;
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.SOUTH.ordinal()] = true;
         newLoc = myLoc.add(Direction.SOUTHEAST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.SOUTHEAST.ordinal()] > d) minDist[Direction.SOUTHEAST.ordinal()] = d;
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.SOUTHEAST.ordinal()] = true;
         newLoc = myLoc.add(Direction.EAST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.EAST.ordinal()] > d) minDist[Direction.EAST.ordinal()] = d;
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.EAST.ordinal()] = true;
         newLoc = myLoc.add(Direction.NORTHEAST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.NORTHEAST.ordinal()] > d) minDist[Direction.NORTHEAST.ordinal()] = d;
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.NORTHEAST.ordinal()] = true;
         newLoc = myLoc.add(Direction.CENTER);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.CENTER.ordinal()] > d) minDist[Direction.CENTER.ordinal()] = d;
-
+        if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.CENTER.ordinal()] = true;
     }
 
-    MapLocation getBestTarget() {
+    void checkCells() {
+        int sight = rc.getCurrentSensorRadiusSquared();
+        MapLocation newLoc = rc.getLocation();
+        Direction[] dirArray = dirPath[sight];
+        int i = dirArray.length;
+        try {
+            while (--i >= 0) {
+                newLoc = newLoc.add(dirArray[i]);
+                if (!rc.canSenseLocation(newLoc)) continue;
+                int prevNumber = map[newLoc.x][newLoc.y] | EXPLORE_BIT;
+                if (rc.senseFlooding(newLoc)){
+                    closestWater = newLoc;
+                }
+                map[newLoc.x][newLoc.y] = prevNumber;
+                if (comm.map[newLoc.x][newLoc.y] == 1){
+                    RobotInfo r = rc.senseRobotAtLocation(newLoc);
+                    if (r == null || (r.type != RobotType.NET_GUN && r.type != RobotType.HQ) || r.team != rc.getTeam().opponent()){
+                        comm.sendGunDestroyed(newLoc);
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+    }
+
+    /*MapLocation getBestTarget() {
         if (closestSoup != null) return closestSoup;
         int bestDist = Constants.INF;
         MapLocation ans = null;
@@ -236,10 +179,9 @@ public class Explore {
             }
         }
         return ans;
-    }
+    }*/
 
     MapLocation exploreTarget() {
-        if (Constants.DEBUG == 1) System.out.println("Trying to go for explore target!  "  + Clock.getBytecodeNum());
         if (exploreTarget != null) {
             if (map[exploreTarget.x][exploreTarget.y] > 0) exploreTarget = null;
         }
@@ -260,12 +202,7 @@ public class Explore {
                 exploreTarget = newLoc;
             }
         }
-        if (exploreTarget == null) if (Constants.DEBUG == 1) System.out.println("null explore Target!");
         return exploreTarget;
-    }
-
-    MapLocation getClosestSoup() {
-        return closestSoup;
     }
 
     void checkComm(){
@@ -285,10 +222,7 @@ public class Explore {
             comm.sendEnemyUnit();
             return;
         }
-        if (enemyHQ != null) comm.sendHQLoc(enemyHQ, 1);
-        if (totalSoupCount/Constants.SOUP_PER_MINER > comm.maxSoup/Constants.SOUP_PER_MINER && comm.maxSoup/Constants.SOUP_PER_MINER < Constants.MAX_MINERS){
-            comm.sendMaxSoup(totalSoupCount);
-        } else if (BuildingManager.nVaporators(totalSoupCount) > BuildingManager.nVaporators(comm.maxSoup)) comm.sendMaxSoup(totalSoupCount);
+        if (enemyHQ != null) comm.sendHQLoc(enemyHQ, 0);
         if (closestWater != null) comm.sendWater(closestWater);
     }
 
@@ -331,4 +265,5 @@ public class Explore {
         dirPath[34] = new Direction[]{Direction.NORTHWEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTHEAST, Direction.NORTHEAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTHWEST, Direction.SOUTHWEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTHWEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTHWEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.CENTER};
         dirPath[35] = new Direction[]{Direction.NORTHWEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTHEAST, Direction.NORTHEAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTHWEST, Direction.SOUTHWEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTHWEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTHWEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.CENTER};
     }
+
 }
