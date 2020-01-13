@@ -6,7 +6,6 @@ public class Drone extends MyRobot{
 
     RobotController rc;
     Comm comm;
-    MapLocation myLoc;
     ExploreDrone exploreDrone;
     DroneBugPath droneBugPath;
 

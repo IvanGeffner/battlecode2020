@@ -30,7 +30,7 @@ public class Miner extends MyRobot{
         if (comm.singleMessage()) comm.readMessages();
         waterManager.update();
         if (!builder) explore.updateMiner();
-        else explore.checkUnits();
+        else explore.updateBuilder();
         explore.checkComm();
         bugPath.update();
         if (explore.dronesFound) bugPath.updateDrones(explore.minDist);

@@ -47,6 +47,7 @@ public class BugPath {
     }
 
     void updateDrones(int[] minDists){
+        if (!rc.isReady()) return;
         this.minDists = minDists;
         checkArrayWithDrones();
     }
@@ -223,6 +224,10 @@ public class BugPath {
     }
 
     void checkArrayWithDrones(){
+        if (minDists == null){
+            System.out.println("THIS SHOULDNT HAPPEN");
+            return;
+        }
         int maxMinDist = 0;
         int i = 9;
         while (--i >= 0){
