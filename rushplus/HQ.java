@@ -1,4 +1,4 @@
-package rush;
+package rushplus;
 
 import battlecode.common.*;
 

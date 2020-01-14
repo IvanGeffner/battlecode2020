@@ -1,0 +1,366 @@
+package rushplus;
+
+import battlecode.common.Direction;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+
+import java.util.HashSet;
+
+public class BugPath {
+
+    RobotController rc;
+
+    BugPath(RobotController rc){
+        this.rc = rc;
+    }
+
+    Boolean rotateRight = null; //if I should rotate right or left
+    Boolean rotateRightAux = null;
+    MapLocation lastObstacleFound = null; //latest obstacle I've found in my way
+    int minDistToTarget = Constants.INF; //minimum distance I've been to the enemy while going around an obstacle
+    MapLocation minLocationToTarget = null;
+    MapLocation prevTarget = null; //previous target
+    Direction[] dirs = Direction.values();
+    boolean shouldFlee = false;
+    boolean surroundedByWater = false;
+    int turnsFleeing = 0;
+    HashSet<Integer> states = new HashSet<>();
+
+    MapLocation myLoc;
+    boolean[] canMoveArray;
+    boolean[] flooded;
+    int round;
+
+    int turnsMovingToObstacle = 0;
+    final int MAX_TURNS_MOVING_TO_OBSTACLE = 2;
+
+    final int MIN_DIST_RESET = 3;
+    int[] minDists;
+    boolean[] safe;
+
+    void update(){
+        if (!rc.isReady()) return;
+        myLoc = rc.getLocation();
+        round = rc.getRoundNum();
+        updateArray();
+        checkFleeStatus();
+        //if (Constants.DEBUG == 1) debugMovement();
+    }
+
+    void updateDrones(Danger danger){
+        if (!rc.isReady()) return;
+        this.minDists = danger.minDist;
+        this.safe = danger.safe;
+        checkArrayWithDrones();
+    }
+
+    void debugMovement(){
+        try{
+            for (Direction dir : dirs){
+                MapLocation newLoc = myLoc.add(dir);
+                if (rc.canSenseLocation(newLoc) && canMoveArray[dir.ordinal()]) rc.setIndicatorDot(newLoc, 0, 0, 255);
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    void moveTo(MapLocation target){
+        //No target? ==> bye!
+        if (target == null) target = rc.getLocation();
+        if (Constants.DEBUG == 1) rc.setIndicatorDot(target, 255, 0, 0);
+        if (!rc.isReady()) return;
+        if (target == null) return;
+
+
+        //different target? ==> previous data does not help!
+        if (prevTarget == null){
+            resetPathfinding();
+            rotateRight = null;
+            rotateRightAux = null;
+        }
+        else {
+            int distTargets = target.distanceSquaredTo(prevTarget);
+            if (distTargets > 0) {
+                if (distTargets >= MIN_DIST_RESET){
+                    rotateRight = null;
+                    rotateRightAux = null;
+                    resetPathfinding();
+                }
+                else softReset(target);
+            }
+        }
+
+        //Update data
+        prevTarget = target;
+
+        checkState();
+
+
+        //If I'm at a minimum distance to the target, I'm free!
+        int d = myLoc.distanceSquaredTo(target);
+        if (d == 0){
+            if (canMoveArray[Direction.CENTER.ordinal()]) return;
+            moveSafe();
+            return;
+        }
+        if (d <= minDistToTarget){
+            resetPathfinding();
+            minDistToTarget = d;
+            minLocationToTarget = myLoc;
+        }
+
+        //If there's an obstacle I try to go around it [until I'm free] instead of going to the target directly
+        Direction dir = myLoc.directionTo(target);
+        if (lastObstacleFound == null){
+            if (tryGreedyMove()){
+                resetPathfinding();
+                return;
+            }
+        }
+        else dir = myLoc.directionTo(lastObstacleFound);
+
+        try {
+
+            //TODO: when obstacle moves
+            if (canMoveArray[dir.ordinal()]){
+                myMove(dir);
+                ++turnsMovingToObstacle;
+                if (turnsMovingToObstacle >= MAX_TURNS_MOVING_TO_OBSTACLE) resetPathfinding();
+                return;
+            } else turnsMovingToObstacle = 0;
+
+            checkRotate(dir);
+
+            //I rotate clockwise or counterclockwise (depends on 'rotateRight'). If I try to go out of the map I change the orientation
+            //Note that we have to try at most 16 times since we can switch orientation in the middle of the loop. (It can be done more efficiently)
+            int i = 16;
+            while (i-- >= 0) {
+                MapLocation newLoc = myLoc.add(dir);
+                if (canMoveArray[dir.ordinal()]) {
+                    myMove(dir);
+                    return;
+                }
+                if (!rc.canSenseLocation(newLoc)) rotateRight = !rotateRight;
+                    //If I could not go in that direction and it was not outside of the map, then this is the latest obstacle found
+                else lastObstacleFound = newLoc;
+                if (rotateRight) dir = dir.rotateRight();
+                else dir = dir.rotateLeft();
+            }
+
+            if (canMoveArray[dir.ordinal()]){
+                myMove(dir);
+                return;
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    void myMove(Direction dir){
+        try {
+            if (dir == Direction.CENTER) return;
+            rc.move(dir);
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    void updateArray(){
+        canMoveArray = new boolean[9];
+        flooded = new boolean[9];
+        surroundedByWater = false;
+        try {
+            boolean foundFlooding = false;
+            boolean blind = rc.getCurrentSensorRadiusSquared() < 2;
+            boolean canMove = false;
+            for (Direction dir : dirs) {
+                if (blind){
+                    if (dir == Direction.CENTER || rc.canMove(dir)) {
+                        canMoveArray[dir.ordinal()] = true;
+                        canMove = true;
+                    }
+                }
+                else {
+                    MapLocation newLoc = myLoc.add(dir);
+                    if (!rc.canSenseLocation(newLoc)) continue;
+                    if (isFlooded(newLoc)) {
+                        flooded[dir.ordinal()] = true;
+                        foundFlooding = true;
+                    }
+                    if ((dir == Direction.CENTER || rc.canMove(dir)) && !rc.senseFlooding(newLoc) && !flooded[dir.ordinal()]){
+                        canMoveArray[dir.ordinal()] = true;
+                        canMove = true;
+                    }
+                }
+            }
+            if (!canMove && !blind){
+                for (Direction dir : dirs){
+                    MapLocation newLoc = myLoc.add(dir);
+                    if ((dir == Direction.CENTER || rc.canMove(dir)) && !rc.senseFlooding(newLoc)) canMoveArray[dir.ordinal()] = true;
+                }
+            }
+            if (foundFlooding) checkFlee();
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+
+    }
+
+    void checkArrayWithDrones(){
+        if (minDists == null){
+            //if (Constants.DEBUG == 1) System.out.println("THIS SHOULDNT HAPPEN");
+            return;
+        }
+        int maxMinDist = 0;
+        int i = 9;
+        while (--i >= 0){
+            if (!canMoveArray[i]) continue;
+            int dist = minDists[i];
+            if (safe[i]) dist = Constants.INF;
+            if (dist > maxMinDist) maxMinDist = minDists[i];
+        }
+        if (maxMinDist >= Constants.MIN_DIST_FLEE) maxMinDist = Constants.MIN_DIST_FLEE;
+        //if (Constants.DEBUG == 1) System.out.println("MAXMIN DIST " + maxMinDist);
+        i = 9;
+        while (--i >= 0){
+            if (canMoveArray[i] && !safe[i] && minDists[i] < maxMinDist){
+                canMoveArray[i] = false;
+                //if (Constants.DEBUG == 1) System.out.println("Cant move!! " + dirs[i].name());
+            }
+        }
+    }
+
+    void moveSafe(){
+        resetPathfinding();
+        int i = 9;
+        while (--i >= 0){
+            if (canMoveArray[i]){
+                myMove(dirs[i]);
+                return;
+            }
+        }
+    }
+
+    void checkFlee(){
+        try {
+            if (!shouldFlee) {
+                if (rc.senseElevation(myLoc) <= WaterManager.waterLevelPlus){
+                    shouldFlee = true;
+                    turnsFleeing = 0;
+                }
+            }
+        } catch(Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    void checkFleeStatus(){
+        try {
+            if (shouldFlee) {
+                if (rc.senseElevation(myLoc) > WaterManager.waterLevelPlus){
+                    if (turnsFleeing >= WaterManager.MIN_SAFE_TURNS){
+                        //if (surroundedByWater && turnsFleeing < WaterManager.MIN_SAFE_TURNS) turnsFleeing = WaterManager.MIN_SAFE_TURNS-1;
+                        shouldFlee = false;
+                        turnsFleeing = 0;
+                    } else turnsFleeing++;
+                }
+            }
+        } catch(Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    boolean isFlooded (MapLocation loc){
+        try {
+            if (rc.senseElevation(loc) > WaterManager.waterLevelPlus) return false;
+            MapLocation newLoc = loc.add(Direction.NORTH);
+            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.NORTHEAST);
+            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.EAST);
+            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.SOUTHEAST);
+            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.SOUTH);
+            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.SOUTHWEST);
+            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.WEST);
+            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.NORTHWEST);
+            if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) return true;
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+        return false;
+    }
+
+    boolean tryGreedyMove(){
+        try {
+            if (rotateRightAux != null) return false;
+            MapLocation myLoc = rc.getLocation();
+            Direction dir = myLoc.directionTo(prevTarget);
+            if (canMoveArray[dir.ordinal()]) {
+                myMove(dir);
+                return true;
+            }
+            int dist = myLoc.distanceSquaredTo(prevTarget);
+            int dist1 = Constants.INF, dist2 = Constants.INF;
+            Direction dir1 = dir.rotateRight();
+            MapLocation newLoc = myLoc.add(dir1);
+            if (canMoveArray[dir1.ordinal()]) dist1 = newLoc.distanceSquaredTo(prevTarget);
+            Direction dir2 = dir.rotateLeft();
+            newLoc = myLoc.add(dir2);
+            if (canMoveArray[dir2.ordinal()]) dist2 = newLoc.distanceSquaredTo(prevTarget);
+            if (dist1 < dist && dist1 < dist2) {
+                rotateRightAux = true;
+                myMove(dir1);
+                return true;
+            }
+            if (dist2 < dist && dist2 < dist1) {
+                rotateRightAux = false;
+                myMove(dir2);
+                return true;
+            }
+        } catch(Throwable t){
+            t.printStackTrace();
+        }
+        return false;
+    }
+
+    //TODO: check remaining cases
+    void checkRotate(Direction dir){
+        if (rotateRight != null) return;
+        if (rotateRightAux != null){
+            rotateRight = rotateRightAux;
+            return;
+        }
+        rotateRight = true;
+    }
+
+    //clear some of the previous data
+    void resetPathfinding(){
+        //if (rc.getID() == 13977) System.out.println("reset!");
+        lastObstacleFound = null;
+        minDistToTarget = Constants.INF;
+        states = new HashSet<>();
+    }
+
+    void softReset(MapLocation target){
+        //if (rc.getID() == 13977) System.out.println("soft reset!");
+        if (minLocationToTarget != null) minDistToTarget = minLocationToTarget.distanceSquaredTo(target);
+        else resetPathfinding();
+    }
+
+    void checkState(){
+        int state = (myLoc.x << 8) | (myLoc.y << 2);
+        if (rotateRight != null) {
+            if (rotateRight == true) state = state | 1;
+            if (rotateRight == false) state = state | 2;
+        }
+        if (states.contains(state)) resetPathfinding();
+        states.add(state);
+    }
+
+}

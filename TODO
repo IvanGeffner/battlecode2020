@@ -1,6 +1,27 @@
+Priority Level:
+* not important
+** not urgent
+*** should do
+**** important
+***** critical
+
 MINERS:
-- Avoid trying to reach unreachable Soups [HARD]
+- (**) Avoid trying to reach unreachable Soups [HARD]
 
 PATHFINDING:
-- Recognize repeated states
-- Not to reset when passing through a unit
+- (*) There's some weird shit going on
+- (*) When fleeing, it is ok to move as long as it is above water level
+
+LANDSCAPERS:
+- (***) Dig instead of trying to turn around in some maps
+- (***) Prioritize better buildings
+- (****) Build the Wall
+
+Drones:
+- (****) Pick non-wall landscapers and drop them on the wall or on enemy HQ
+
+Comm:
+- (*****) Broadcast if HQ doesn't see a building and rebuild it
+
+Building Manager:
+- (*****) Fix everything

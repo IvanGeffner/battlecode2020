@@ -1,8 +1,8 @@
-package rush;
+package rushplus;
 
 import battlecode.common.*;
 
-public class Explore {
+public class ExploreMiner {
 
     final int MAX_SOUP_ARRAY = 50;
     final int SOUP_BIT = 2;
@@ -11,6 +11,9 @@ public class Explore {
     final int RESET_BASE = 1;
     final int SOUPS_CHECKED = 8;
     final int MAX_EXPLORE_TIME = 1500;
+    final int MIN_DIST_NET_GUN = 48;
+    final int MIN_DIST_NET_GUN_NEAR_HQ = 8;
+
     int[][] map;
     RobotController rc;
     MapLocation closestSoup;
@@ -25,8 +28,9 @@ public class Explore {
     Direction[][] dirPath;
     int soupCont = 0;
     int totalSoupCount = 0;
-    int diffSoupCount = 0;
+    //int diffSoupCount = 0;
     MapLocation closestWater;
+    MapLocation closestNetGun;
     boolean dronesFound = false;
 
     MapLocation enemyHQ;
@@ -34,23 +38,22 @@ public class Explore {
 
     boolean seenLandscaper = false, seenEnemy = false;
     Comm comm;
-
-    //boolean cantMove[];
-    int[] minDist;
+    Danger danger;
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
     //int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2,0,-4,4,0,-1,1,-4,4,-4,4,-1,1,-3,3,-3,3,-2,2,-4,4,-4,4,-2,2};
 
-    Explore(RobotController rc, Comm comm) {
+    ExploreMiner(RobotController rc, Comm comm, Danger danger) {
         this.rc = rc;
         this.comm = comm;
+        this.danger = danger;
         myTeam = rc.getTeam();
         H = rc.getMapHeight();
         W = rc.getMapWidth();
         map = new int[W][H];
         findHQ();
-        //if (HQloc == null) System.out.println("Couldnt find HQ???");
         closestRefineryLoc = HQloc;
+        closestNetGun = HQloc;
         dirPath = new Direction[36][0];
         fillDirPath();
     }
@@ -90,21 +93,13 @@ public class Explore {
         try {
             if (rc.canSenseLocation(closestRefineryLoc)) {
                 RobotInfo r = rc.senseRobotAtLocation(closestRefineryLoc);
-                if (r != null || r.team != rc.getTeam() || r.type != RobotType.REFINERY) closestRefineryLoc = HQloc;
+                if (r == null || r.team != rc.getTeam() || r.type != RobotType.REFINERY) closestRefineryLoc = HQloc;
             }
-            //cantMove = new boolean[9];
-            minDist = new int[9];
-            minDist[0] = Constants.INF;
-            minDist[1] = Constants.INF;
-            minDist[2] = Constants.INF;
-            minDist[3] = Constants.INF;
-            minDist[4] = Constants.INF;
-            minDist[5] = Constants.INF;
-            minDist[6] = Constants.INF;
-            minDist[7] = Constants.INF;
-            minDist[8] = Constants.INF;
-            dronesFound = false;
-
+            if (closestNetGun != null && rc.canSenseLocation(closestNetGun)) {
+                RobotInfo r = rc.senseRobotAtLocation(closestNetGun);
+                if (r == null || r.team != rc.getTeam() || r.type != RobotType.NET_GUN) closestNetGun = HQloc;
+            }
+            danger.init(myLoc);
             RobotInfo[] robots = rc.senseNearbyRobots();
             int bestDist = myLoc.distanceSquaredTo(closestRefineryLoc);
             for (RobotInfo r : robots) {
@@ -131,11 +126,18 @@ public class Explore {
                         break;
                     case NET_GUN:
                         if (r.team != rc.getTeam()) comm.sendGun(r.location);
+                        else{
+                            int d = myLoc.distanceSquaredTo(r.location);
+                            if (closestNetGun == null || d < myLoc.distanceSquaredTo(closestNetGun)){
+                                closestNetGun = r.location;
+                            }
+                            danger.addSafe(r.location);
+                        }
                         break;
                     case DELIVERY_DRONE:
                         if (r.team != rc.getTeam()){
                             dronesFound = true;
-                            addDanger(r.location);
+                            danger.addDanger(r.location);
                         }
                         break;
                 }
@@ -172,7 +174,7 @@ public class Explore {
                         soups[currentIndex] = newLoc;
                         currentIndex = (currentIndex + 1) % MAX_SOUP_ARRAY;
                         totalSoupCount += soup;
-                        ++diffSoupCount;
+                        //++diffSoupCount;
                     }
                 } else {
                     if ((prevNumber & SOUP_BIT) > 0) {
@@ -186,37 +188,6 @@ public class Explore {
         } catch (Throwable t) {
             t.printStackTrace();
         }
-    }
-
-    void addDanger(MapLocation loc){
-        MapLocation newLoc = myLoc.add(Direction.NORTH);
-        int d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.NORTH.ordinal()] > d) minDist[Direction.NORTH.ordinal()] = d;
-        newLoc = myLoc.add(Direction.NORTHWEST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.NORTHWEST.ordinal()] > d) minDist[Direction.NORTHWEST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.WEST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.WEST.ordinal()] > d) minDist[Direction.WEST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.SOUTHWEST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.SOUTHWEST.ordinal()] > d) minDist[Direction.SOUTHWEST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.SOUTH);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.SOUTH.ordinal()] > d) minDist[Direction.SOUTH.ordinal()] = d;
-        newLoc = myLoc.add(Direction.SOUTHEAST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.SOUTHEAST.ordinal()] > d) minDist[Direction.SOUTHEAST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.EAST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.EAST.ordinal()] > d) minDist[Direction.EAST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.NORTHEAST);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.NORTHEAST.ordinal()] > d) minDist[Direction.NORTHEAST.ordinal()] = d;
-        newLoc = myLoc.add(Direction.CENTER);
-        d = loc.distanceSquaredTo(newLoc);
-        if (minDist[Direction.CENTER.ordinal()] > d) minDist[Direction.CENTER.ordinal()] = d;
-
     }
 
     MapLocation getBestTarget() {
@@ -294,6 +265,23 @@ public class Explore {
             if (closestSoup != null) comm.sendMaxSoup(totalSoupCount, closestSoup);
         } else if (BuildingManager.nVaporators(totalSoupCount) > BuildingManager.nVaporators(comm.maxSoup)) if (closestSoup != null) comm.sendMaxSoup(totalSoupCount, closestSoup);
         if (closestWater != null) comm.sendWater(closestWater);
+    }
+
+    boolean shouldBuildNetGun(){
+        if (!rc.isReady()) return false;
+        if (!dronesFound) return false;
+        if (rc.getTeamSoup() <= RobotType.NET_GUN.cost) return false;
+        if (enemyHQ == null) enemyHQ = comm.enemyHQLoc;
+        if (enemyHQ != null){
+            if (comm.buildings[RobotType.LANDSCAPER.ordinal()] > 0){
+                if (myLoc.distanceSquaredTo(enemyHQ) <= 25){
+                    if (myLoc.distanceSquaredTo(closestNetGun) > MIN_DIST_NET_GUN_NEAR_HQ) return true;
+                }
+            }
+        }
+        if (myLoc.distanceSquaredTo(closestNetGun) <= MIN_DIST_NET_GUN) return false;
+        if (soupCont < RobotType.NET_GUN.cost/2) return false;
+        return true;
     }
 
 

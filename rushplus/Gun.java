@@ -1,4 +1,4 @@
-package rush;
+package rushplus;
 
 import battlecode.common.RobotController;
 
@@ -9,6 +9,7 @@ public class Gun extends MyRobot {
 
     Gun(RobotController rc){
         this.rc = rc;
+        netGunManager = new NetGunManager(rc);
     }
 
     void play(){

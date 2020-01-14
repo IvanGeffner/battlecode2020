@@ -1,0 +1,127 @@
+package rushplus;
+
+import battlecode.common.Direction;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+import battlecode.common.RobotInfo;
+
+public class Drone extends MyRobot {
+
+    RobotController rc;
+    Comm comm;
+    ExploreDrone exploreDrone;
+    DroneBugPath droneBugPath;
+
+    RobotInfo robotHeld;
+
+    Drone(RobotController rc){
+        this.rc = rc;
+        comm = new Comm(rc);
+        //myLoc = rc.getLocation();
+        exploreDrone = new ExploreDrone(rc, comm);
+        droneBugPath = new DroneBugPath(rc, comm);
+    }
+
+    void play(){
+        if (comm.singleMessage()) comm.readMessages();
+        exploreDrone.update();
+        exploreDrone.checkComm();
+        tryGrabEnemy();
+        tryDropEnemy();
+        MapLocation target = getTarget();
+        if (target != null){
+            droneBugPath.updateGuns(exploreDrone.cantMove);
+            droneBugPath.moveTo(target);
+        }
+        comm.readMessages();
+    }
+
+    MapLocation getTarget(){
+        if (!rc.isReady()) return null;
+        if (rc.isCurrentlyHoldingUnit()){
+            if (exploreDrone.closestWater != null) return exploreDrone.closestWater;
+            if (comm.water != null) return comm.water;
+            return exploreDrone.exploreTarget();
+        }
+        if (exploreDrone.closestLandscaper != null) return exploreDrone.closestLandscaper.location;
+        if (exploreDrone.closestMiner != null) return exploreDrone.closestMiner.location;
+        MapLocation enemyHQ = comm.getEnemyHQLoc();
+        if (enemyHQ != null) return enemyHQ;
+        MapLocation loc = getBestGuess();
+        if (loc != null) return loc;
+        return exploreDrone.exploreTarget();
+    }
+
+    MapLocation getBestGuess(){
+        MapLocation ans = null;
+        int bestDist = 0;
+        MapLocation myLoc = rc.getLocation();
+        MapLocation hor = comm.getHorizontal(), ver = comm.getVertical(), rot = comm.getRotational();
+        if (hor != null){
+            int t = myLoc.distanceSquaredTo(hor);
+            if (ans == null || t < bestDist){
+                ans = hor;
+                bestDist = t;
+            }
+        }
+        if (ver != null){
+            int t = myLoc.distanceSquaredTo(ver);
+            if (ans == null || t < bestDist){
+                ans = ver;
+                bestDist = t;
+            }
+        }
+        if (rot != null){
+            int t = myLoc.distanceSquaredTo(rot);
+            if (ans == null || t < bestDist){
+                ans = rot;
+                bestDist = t;
+            }
+        }
+        return ans;
+    }
+
+    void tryGrabEnemy(){
+        if (!rc.isReady()) return;
+        if (rc.isCurrentlyHoldingUnit()) return;
+        try {
+            if (exploreDrone.closestLandscaper != null && rc.canPickUpUnit(exploreDrone.closestLandscaper.getID())) {
+                rc.pickUpUnit(exploreDrone.closestLandscaper.getID());
+                robotHeld = exploreDrone.closestLandscaper;
+                return;
+            }
+            if (exploreDrone.closestMiner != null && rc.canPickUpUnit(exploreDrone.closestMiner.getID())) {
+                rc.pickUpUnit(exploreDrone.closestMiner.getID());
+                robotHeld = exploreDrone.closestMiner;
+                return;
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    void tryDropEnemy(){
+        if (!rc.isReady()) return;
+        if (!rc.isCurrentlyHoldingUnit()) return;
+        MapLocation myLoc = rc.getLocation();
+        try {
+            Direction dir = Direction.NORTH;
+            for (int i = 0; i < 8; ++i){
+                MapLocation newLoc = myLoc.add(dir);
+                if (!rc.canDropUnit(dir)){
+                    dir = dir.rotateLeft();
+                    continue;
+                }
+                if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)){
+                    rc.dropUnit(dir);
+                    robotHeld = null;
+                    return;
+                }
+                dir = dir.rotateLeft();
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+}

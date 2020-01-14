@@ -1,4 +1,4 @@
-package rush;
+package rushplus;
 
 public abstract class MyRobot {
 
