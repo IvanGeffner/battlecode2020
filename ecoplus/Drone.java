@@ -11,6 +11,7 @@ public class Drone extends MyRobot {
     Comm comm;
     ExploreDrone exploreDrone;
     DroneBugPath droneBugPath;
+    BuildingZone buildingZone;
 
     RobotInfo robotHeld;
 
@@ -18,7 +19,8 @@ public class Drone extends MyRobot {
         this.rc = rc;
         comm = new Comm(rc);
         //myLoc = rc.getLocation();
-        exploreDrone = new ExploreDrone(rc, comm);
+        buildingZone = new BuildingZone(rc);
+        exploreDrone = new ExploreDrone(rc, comm, buildingZone);
         droneBugPath = new DroneBugPath(rc, comm);
     }
 
@@ -26,25 +28,37 @@ public class Drone extends MyRobot {
         if (comm.singleMessage()) comm.readMessages();
         exploreDrone.update();
         exploreDrone.checkComm();
-        tryGrabEnemy();
+        tryGrab();
         tryDropEnemy();
+        tryDropAlly();
         MapLocation target = getTarget();
         if (target != null){
             droneBugPath.updateGuns(exploreDrone.cantMove);
             droneBugPath.moveTo(target);
         }
         comm.readMessages();
+        if (comm.wallMes != null) buildingZone.update(comm.wallMes);
+        buildingZone.run();
     }
 
     MapLocation getTarget(){
         if (!rc.isReady()) return null;
         if (rc.isCurrentlyHoldingUnit()){
-            if (exploreDrone.closestWater != null) return exploreDrone.closestWater;
-            if (comm.water != null) return comm.water;
-            return exploreDrone.exploreTarget();
+            if (robotHeld == null || robotHeld.getTeam() != rc.getTeam()) {
+                if (exploreDrone.closestWater != null) return exploreDrone.closestWater;
+                if (comm.water != null) return comm.water;
+                return exploreDrone.exploreTarget();
+            }
+            else{
+                if (exploreDrone.closestFinishedWall != null) return exploreDrone.closestFinishedWall;
+                else return exploreDrone.exploreTarget();
+            }
         }
         if (exploreDrone.closestLandscaper != null) return exploreDrone.closestLandscaper.location;
         if (exploreDrone.closestMiner != null) return exploreDrone.closestMiner.location;
+        if (exploreDrone.stuckAlly != null && exploreDrone.closestFinishedWall != null){
+            return exploreDrone.stuckAlly.location;
+        }
         MapLocation enemyHQ = comm.getEnemyHQLoc();
         if (enemyHQ != null) return enemyHQ;
         MapLocation loc = getBestGuess();
@@ -81,7 +95,7 @@ public class Drone extends MyRobot {
         return ans;
     }
 
-    void tryGrabEnemy(){
+    void tryGrab(){
         if (!rc.isReady()) return;
         if (rc.isCurrentlyHoldingUnit()) return;
         try {
@@ -95,6 +109,11 @@ public class Drone extends MyRobot {
                 robotHeld = exploreDrone.closestMiner;
                 return;
             }
+            if (exploreDrone.stuckAlly != null && rc.canPickUpUnit(exploreDrone.stuckAlly.getID())) {
+                rc.pickUpUnit(exploreDrone.stuckAlly.getID());
+                robotHeld = exploreDrone.stuckAlly;
+                return;
+            }
         } catch (Throwable t){
             t.printStackTrace();
         }
@@ -103,6 +122,7 @@ public class Drone extends MyRobot {
     void tryDropEnemy(){
         if (!rc.isReady()) return;
         if (!rc.isCurrentlyHoldingUnit()) return;
+        if (robotHeld != null && robotHeld.team == rc.getTeam()) return;
         MapLocation myLoc = rc.getLocation();
         try {
             Direction dir = Direction.NORTH;
@@ -113,6 +133,32 @@ public class Drone extends MyRobot {
                     continue;
                 }
                 if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)){
+                    rc.dropUnit(dir);
+                    robotHeld = null;
+                    return;
+                }
+                dir = dir.rotateLeft();
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    void tryDropAlly(){
+        if (!rc.isReady()) return;
+        if (!rc.isCurrentlyHoldingUnit()) return;
+        if (robotHeld == null || robotHeld.team != rc.getTeam()) return;
+        if (!buildingZone.finished()) return;
+        MapLocation myLoc = rc.getLocation();
+        try {
+            Direction dir = Direction.NORTH;
+            for (int i = 0; i < 8; ++i){
+                MapLocation newLoc = myLoc.add(dir);
+                if (!rc.canDropUnit(dir)){
+                    dir = dir.rotateLeft();
+                    continue;
+                }
+                if (rc.canSenseLocation(newLoc) && buildingZone.isWall(newLoc) && rc.senseElevation(newLoc) == Constants.WALL_HEIGHT){
                     rc.dropUnit(dir);
                     robotHeld = null;
                     return;

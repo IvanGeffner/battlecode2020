@@ -13,5 +13,7 @@ public class Constants {
     static int MAX_RUSH_TURN = 450;
     static int RUSH_TURN = 300;
     static int WALL_HEIGHT = 15;
+    static int MAX_DIFF_HEIGHT = 25;
+    static int MIN_DEPTH = -10;
 
 }

@@ -23,6 +23,7 @@ Drones:
 
 Comm:
 - (*****) Broadcast if HQ doesn't see a building and rebuild it
+- (***) Messages can be < 7 lol
 
 Building Manager:
 - (*****) Fix everything

@@ -176,7 +176,7 @@ public class Miner extends MyRobot {
             int bestHeight = 0;
             Direction dir = Direction.NORTH;
             MapLocation myLoc = rc.getLocation();
-            boolean nextToWall = type == RobotType.FULFILLMENT_CENTER || type == RobotType.DESIGN_SCHOOL;
+            boolean notNextToWall = type == RobotType.FULFILLMENT_CENTER || type == RobotType.DESIGN_SCHOOL;
             for (int i = 0; i < 8; ++i) {
                 if (rc.canBuildRobot(type, dir)) {
                     MapLocation newLoc = myLoc.add(dir);
@@ -186,7 +186,7 @@ public class Miner extends MyRobot {
                             dir = dir.rotateLeft();
                             continue;
                         }
-                        if (nextToWall && buildingZone.map[newLoc.x][newLoc.y] != buildingZone.NEXT_TO_WALL){
+                        if (notNextToWall && buildingZone.map[newLoc.x][newLoc.y] != buildingZone.BUILDING_AREA){
                             dir = dir.rotateLeft();
                             continue;
                         }

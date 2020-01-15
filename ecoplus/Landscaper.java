@@ -153,7 +153,7 @@ public class Landscaper extends MyRobot {
                     return;
                 }*/
             }
-            if (bestSpot != null){
+            if (bestSpot != null && bestSpot.score() > 0){
                 if (bestSpot.score() < 3 && !free && rc.getDirtCarrying() > 0) return;
                 rc.digDirt(bestSpot.dir);
             }
@@ -169,6 +169,7 @@ public class Landscaper extends MyRobot {
         int zone;
         MapLocation loc;
         int elevation;
+        boolean flooded;
 
         int score = -1;
 
@@ -182,6 +183,7 @@ public class Landscaper extends MyRobot {
                         zone = buildingZone.map[loc.x][loc.y];
                         if (zone == 0 && buildingZone.isWall(loc)) zone = BuildingZone.WALL;
                         elevation = rc.senseElevation(loc);
+                        flooded = rc.senseFlooding(loc);
                     }
                 }
             } catch(Throwable t){
@@ -193,7 +195,10 @@ public class Landscaper extends MyRobot {
             if (score >= 0) return score;
             switch(zone){
                 case BuildingZone.WALL:
-                    if (elevation > Constants.WALL_HEIGHT) score = 3;
+                    if (elevation > Constants.WALL_HEIGHT){
+                        if (elevation > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT) score = 3;
+                        else score = 4;
+                    }
                     else score = 0;
                     break;
                 case BuildingZone.BUILDING_AREA:
@@ -201,7 +206,8 @@ public class Landscaper extends MyRobot {
                     score = 1;
                     break;
                 default:
-                    score = 2;
+                    if (flooded) score = 0;
+                    else score = 2;
                     break;
             }
             return score;

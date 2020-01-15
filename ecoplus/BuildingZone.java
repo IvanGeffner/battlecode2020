@@ -116,4 +116,9 @@ public class BuildingZone {
         }
     }
 
+    //TODO
+    boolean isSafe(MapLocation loc){
+        return false;
+    }
+
 }
