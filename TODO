@@ -16,6 +16,7 @@ LANDSCAPERS:
 - (***) Dig instead of trying to turn around in some maps
 - (***) Prioritize better buildings
 - (****) Build the Wall
+- (***) Fill water holes inside wall
 
 Drones:
 - (****) Pick non-wall landscapers and drop them on the wall or on enemy HQ
@@ -25,3 +26,6 @@ Comm:
 
 Building Manager:
 - (*****) Fix everything
+
+-HQ:
+- (***) Make wall
