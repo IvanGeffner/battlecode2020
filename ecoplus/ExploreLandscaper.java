@@ -27,6 +27,7 @@ public class ExploreLandscaper {
     int distToEnemyBuilding;
 
     MapLocation closestWallToBuild;
+    int minDistToClosesWallToBuild;
 
     BuildingZone buildingZone;
 
@@ -57,6 +58,7 @@ public class ExploreLandscaper {
         prevLocy = myLoc.y;
         //checkWater();
         checkClosestBuilding();
+        checkClosestWallToBuild();
         checkUnits();
         if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
         if (shouldCheckCells) checkCells();
@@ -82,6 +84,22 @@ public class ExploreLandscaper {
                     distToEnemyBuilding = 0;
                 }
             }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    void checkClosestWallToBuild(){
+        try{
+            if (closestWallToBuild == null) return;
+            if (rc.canSenseLocation(closestWallToBuild)) {
+                if (rc.senseElevation(closestWallToBuild) >= Constants.WALL_HEIGHT){
+                    closestWallToBuild = null;
+                    return;
+                }
+            }
+            int d = myLoc.distanceSquaredTo(closestWallToBuild);
+            if (d < minDistToClosesWallToBuild) minDistToClosesWallToBuild = d;
         } catch (Throwable t){
             t.printStackTrace();
         }
@@ -160,29 +178,29 @@ public class ExploreLandscaper {
         if (!buildingZone.finished()) return;
         MapLocation newLoc = rc.getLocation();
         Direction[] dirArray = dirPath[sight];
-        closestWallToBuild = null;
-        int bestDist = 0;
+        //closestWallToBuild = null;
+        //int bestDist = 0;
         int i = dirArray.length;
         try {
             while (--i >= 0) {
                 newLoc = newLoc.add(dirArray[i]);
                 if (!rc.canSenseLocation(newLoc)) continue;
-                int prevNumber = map[newLoc.x][newLoc.y] | EXPLORE_BIT;
+                /*int prevNumber = map[newLoc.x][newLoc.y] | EXPLORE_BIT;
                 map[newLoc.x][newLoc.y] = prevNumber;
                 if (comm.map[newLoc.x][newLoc.y] == 1){
                     RobotInfo r = rc.senseRobotAtLocation(newLoc);
                     if (r == null || (r.type != RobotType.NET_GUN && r.type != RobotType.HQ) || r.team != rc.getTeam().opponent()){
                         comm.sendGunDestroyed(newLoc);
                     }
-                }
+                }*/
                 //if (buildingZone.isWall(newLoc)) rc.setIndicatorDot(newLoc, 0, 0, 255);
                 //else rc.setIndicatorDot(newLoc, 0, 255, 0);
                 if (buildingZone.isWall(newLoc) && rc.senseElevation(newLoc) < Constants.WALL_HEIGHT){
                     int d = newLoc.distanceSquaredTo(myLoc);
-                    if (closestWallToBuild == null || d <= bestDist){
-                        if (closestWallToBuild == null || d < bestDist || buildingZone.HQloc.distanceSquaredTo(newLoc) < buildingZone.HQloc.distanceSquaredTo(closestWallToBuild)) {
+                    if (closestWallToBuild == null || d <= minDistToClosesWallToBuild){
+                        if (closestWallToBuild == null || d < minDistToClosesWallToBuild || buildingZone.HQloc.distanceSquaredTo(newLoc) < buildingZone.HQloc.distanceSquaredTo(closestWallToBuild)) {
                             closestWallToBuild = newLoc;
-                            bestDist = d;
+                            minDistToClosesWallToBuild = d;
                         }
                         //if (Constants.DEBUG == 1) rc.setIndicatorLine(rc.getLocation(), newLoc, 0, 0, 255);
                     }
@@ -193,7 +211,7 @@ public class ExploreLandscaper {
         }
     }
 
-    MapLocation exploreTarget() {
+    /*MapLocation exploreTarget() {
         if (exploreTarget != null) {
             if (map[exploreTarget.x][exploreTarget.y] > 0) exploreTarget = null;
         }
@@ -215,7 +233,7 @@ public class ExploreLandscaper {
             }
         }
         return exploreTarget;
-    }
+    }*/
 
     void checkComm(){
         //if (!comm.upToDate()) return; already checked there lol

@@ -87,8 +87,8 @@ public class Miner extends MyRobot {
         if (comm.latestMiningLoc != null){
             if (explore.map[comm.latestMiningLoc.x][comm.latestMiningLoc.y] == 0) return comm.latestMiningLoc;
         }
-        ans = comm.getEnemyHQLoc();
-        if (ans != null && rc.getRoundNum() >= Constants.RUSH_TURN) return ans;
+        //ans = comm.getEnemyHQLoc();
+        //if (ans != null && rc.getRoundNum() >= Constants.RUSH_TURN) return ans;
         return explore.exploreTarget();
     }
 

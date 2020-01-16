@@ -13,8 +13,10 @@ public class Landscaper extends MyRobot {
     Danger danger;
     MapLocation myLoc;
 
-    RobotInfo robotHeld;
     Direction[] dirs = Direction.values();
+
+    AdjacentSpot bestSpotDig, bestSpotDeposit;
+    int sight;
 
     Landscaper(RobotController rc){
         this.rc = rc;
@@ -31,6 +33,7 @@ public class Landscaper extends MyRobot {
         if (comm.singleMessage()) comm.readMessages();
         waterManager.update();
         exploreLandscaper.update();
+        if (Constants.DEBUG == 1 && exploreLandscaper.closestWallToBuild != null) rc.setIndicatorLine(rc.getLocation(), exploreLandscaper.closestWallToBuild, 0, 255, 0);
         exploreLandscaper.checkComm();
         bugPath.update();
         if (exploreLandscaper.dronesFound) bugPath.updateDrones(danger);
@@ -46,18 +49,17 @@ public class Landscaper extends MyRobot {
         if (Constants.DEBUG == 1) System.out.println("Bytecode post trying to flee water " + Clock.getBytecodeNum());
         tryMoveToWall();
         tryBury();
-        tryBuildWall();
-        tryDig(false);
+        tryDigAndDeposit();
         if (Constants.DEBUG == 1) System.out.println("Bytecode post dig/bury " + Clock.getBytecodeNum());
         if (!flee){
             MapLocation target = getTarget();
             bugPath.moveTo(target);
             //if (rc.isReady() && !bugPath.canMoveArray[Direction.CENTER.ordinal()]) bugPath.moveSafe();
         }
-        tryDig(true);
-        comm.readMessages();
+        tryDig();
         if (comm.wallMes != null) buildingZone.update(comm.wallMes);
         buildingZone.run();
+        comm.readMessages();
     }
 
     MapLocation getTarget(){
@@ -67,11 +69,12 @@ public class Landscaper extends MyRobot {
         MapLocation enemyHQ = comm.getEnemyHQLoc();
         if (enemyHQ != null) return enemyHQ;
         MapLocation loc = getBestGuess();
-        if (loc != null) return loc;
-        return exploreLandscaper.exploreTarget();
+        return loc;
+        //return exploreLandscaper.exploreTarget();
     }
 
     void tryMoveToWall(){
+        if (!rc.isReady()) return;
         if (!buildingZone.finished()) return;
         if (buildingZone.isWall(rc.getLocation())) return;
         if (exploreLandscaper.closestWallToBuild == null) return;
@@ -125,101 +128,252 @@ public class Landscaper extends MyRobot {
         try {
             if (!rc.isReady()) return;
             if (exploreLandscaper.closestWallToBuild == null) return;
-            if (exploreLandscaper.closestWallToBuild.distanceSquaredTo(rc.getLocation()) <= 2){
-                Direction dir = rc.getLocation().directionTo(exploreLandscaper.closestWallToBuild);
-                if (rc.canDepositDirt(dir)) rc.depositDirt(dir);
-                return;
+            myLoc = rc.getLocation();
+            if (myLoc.distanceSquaredTo(exploreLandscaper.closestWallToBuild) > 2) return;
+            Direction dir = myLoc.directionTo(exploreLandscaper.closestWallToBuild);
+            if (rc.canDepositDirt(dir)){
+                rc.depositDirt(dir);
             }
         } catch (Throwable t){
             t.printStackTrace();
         }
     }
 
-    void tryDig(boolean free){
+    void tryDig(){
         try {
             if (!rc.isReady()) return;
             if (!buildingZone.finished()) return;
-            DiggingSpot bestSpot = null;
-            myLoc = rc.getLocation();
-            //if (!free && rc.getDirtCarrying() > 0) return;
-            for (Direction dir : dirs){
-                DiggingSpot d = new DiggingSpot(dir);
-                if (d.isBetterThan(bestSpot)) bestSpot = d;
-                /*MapLocation newLoc = rc.getLocation().add(dir);
-                if (!rc.canDigDirt(dir)) continue;
-                if (!free && buildingZone.map[newLoc.x][newLoc.y] > 0) continue;
-                if (rc.canSenseLocation(newLoc) && buildingZone.map[newLoc.x][newLoc.y] == 0){
-                    rc.digDirt(dir);
-                    return;
-                }*/
-            }
-            if (bestSpot != null && bestSpot.score() > 0){
-                if (bestSpot.score() < 3 && !free && rc.getDirtCarrying() > 0) return;
-                rc.digDirt(bestSpot.dir);
+            if (rc.getDirtCarrying() >= RobotType.LANDSCAPER.dirtLimit) return;
+            if (bestSpotDig != null && bestSpotDig.scoreDig() > 0){
+                rc.digDirt(bestSpotDig.dir);
             }
         } catch (Throwable t){
             t.printStackTrace();
         }
     }
 
-    class DiggingSpot{
+    void tryDigAndDeposit(){
+        try {
+            if (!rc.isReady()) return;
+            if (!buildingZone.finished()) return;
+            if(Constants.DEBUG == 1) System.out.println("Before adjacent analysis " + Clock.getBytecodeNum());
+            bestSpotDig = null; bestSpotDeposit = null;
+            myLoc = rc.getLocation();
+            sight = rc.getCurrentSensorRadiusSquared();
+
+
+            AdjacentSpot s1 = new AdjacentSpot(Direction.NORTH);
+            AdjacentSpot s2 = new AdjacentSpot(Direction.NORTHEAST);
+            AdjacentSpot s3 = new AdjacentSpot(Direction.EAST);
+            AdjacentSpot s4 = new AdjacentSpot(Direction.SOUTHEAST);
+            AdjacentSpot s5 = new AdjacentSpot(Direction.SOUTH);
+            AdjacentSpot s6 = new AdjacentSpot(Direction.SOUTHWEST);
+            AdjacentSpot s7 = new AdjacentSpot(Direction.WEST);
+            AdjacentSpot s8 = new AdjacentSpot(Direction.NORTHWEST);
+            AdjacentSpot s9 = new AdjacentSpot(Direction.CENTER);
+
+            if(Constants.DEBUG == 1) System.out.println("After adjacent analysis " + Clock.getBytecodeNum());
+
+            if (rc.getDirtCarrying() > 0){
+                if (s1.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s1;
+                if (s2.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s2;
+                if (s3.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s3;
+                if (s4.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s4;
+                if (s5.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s5;
+                if (s6.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s6;
+                if (s7.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s7;
+                if (s8.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s8;
+                if (s9.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s9;
+
+                if (bestSpotDeposit != null && bestSpotDeposit.depositScore() >= 3) {
+                    rc.depositDirt(bestSpotDeposit.dir);
+                    return;
+                }
+            }
+
+            if (rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit) {
+                if (s1.isBetterDiggingTargetThan(bestSpotDig)) bestSpotDig = s1;
+                if (s2.isBetterDiggingTargetThan(bestSpotDig)) bestSpotDig = s2;
+                if (s3.isBetterDiggingTargetThan(bestSpotDig)) bestSpotDig = s3;
+                if (s4.isBetterDiggingTargetThan(bestSpotDig)) bestSpotDig = s4;
+                if (s5.isBetterDiggingTargetThan(bestSpotDig)) bestSpotDig = s5;
+                if (s6.isBetterDiggingTargetThan(bestSpotDig)) bestSpotDig = s6;
+                if (s7.isBetterDiggingTargetThan(bestSpotDig)) bestSpotDig = s7;
+                if (s8.isBetterDiggingTargetThan(bestSpotDig)) bestSpotDig = s8;
+                if (s9.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s9;
+
+                if (bestSpotDig != null && bestSpotDig.scoreDig() > 0) {
+                    if (bestSpotDig.scoreDig() >= 3 || rc.getDirtCarrying() == 0) {
+                        rc.digDirt(bestSpotDig.dir);
+                        return;
+                    }
+                }
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    class AdjacentSpot {
 
         Direction dir;
-        boolean canDig;
+        boolean canDig, canDeposit;
         int zone;
         MapLocation loc;
         int elevation;
         boolean flooded;
+        boolean waterAdj;
 
-        int score = -1;
+        int scoreDig = -1, scoreDeposit = -1;
 
-        DiggingSpot (Direction dir){
+        //TODO: what if can't sense?
+        AdjacentSpot(Direction dir){
             try {
                 this.dir = dir;
-                canDig = rc.canDigDirt(dir);
-                if (canDig) {
-                    loc = myLoc.add(dir);
-                    if (rc.canSenseLocation(loc)) {
-                        zone = buildingZone.map[loc.x][loc.y];
-                        if (zone == 0 && buildingZone.isWall(loc)) zone = BuildingZone.WALL;
-                        elevation = rc.senseElevation(loc);
-                        flooded = rc.senseFlooding(loc);
+                loc = myLoc.add(dir);
+                if (rc.canSenseLocation(loc)){
+                    canDig = rc.canDigDirt(dir);
+                    canDeposit = rc.canDepositDirt(dir);
+                    zone = buildingZone.getZone(loc);
+                    elevation = rc.senseElevation(loc);
+                    flooded = rc.senseFlooding(loc);
+                    if (sight >= 8){
+                        if (Constants.DEBUG == 1) System.out.println("Before compute Adj: " + Clock.getBytecodeNum());
+                        computeWaterAdj();
+                        if (Constants.DEBUG == 1) System.out.println("After compute Adj: " + Clock.getBytecodeNum());
                     }
+
                 }
             } catch(Throwable t){
                 t.printStackTrace();
             }
         }
 
-        int score(){
-            if (score >= 0) return score;
+        void computeWaterAdj(){
+            try {
+                MapLocation newLoc = loc.add(Direction.NORTH);
+                if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) {
+                    waterAdj = true;
+                    return;
+                }
+                newLoc = loc.add(Direction.NORTHEAST);
+                if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) {
+                    waterAdj = true;
+                    return;
+                }
+                newLoc = loc.add(Direction.EAST);
+                if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) {
+                    waterAdj = true;
+                    return;
+                }
+                newLoc = loc.add(Direction.SOUTHEAST);
+                if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) {
+                    waterAdj = true;
+                    return;
+                }
+                newLoc = loc.add(Direction.SOUTH);
+                if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) {
+                    waterAdj = true;
+                    return;
+                }
+                newLoc = loc.add(Direction.SOUTHWEST);
+                if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) {
+                    waterAdj = true;
+                    return;
+                }
+                newLoc = loc.add(Direction.WEST);
+                if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) {
+                    waterAdj = true;
+                    return;
+                }
+                newLoc = loc.add(Direction.NORTHWEST);
+                if (rc.canSenseLocation(newLoc) && rc.senseFlooding(newLoc)) {
+                    waterAdj = true;
+                    return;
+                }
+
+            } catch(Throwable t){
+                t.printStackTrace();
+            }
+        }
+
+        int scoreDig(){
+            if (scoreDig >= 0) return scoreDig;
+            if (flooded && elevation >= Constants.MIN_DEPTH){
+                scoreDig = 0;
+                return scoreDig;
+            }
+            if (waterAdj && elevation <= WaterManager.waterLevel + Constants.SAFETY_WALL){
+                scoreDig = 0;
+                return scoreDig;
+            }
             switch(zone){
                 case BuildingZone.WALL:
+                case BuildingZone.OUTER_WALL:
                     if (elevation > Constants.WALL_HEIGHT){
-                        if (elevation > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT) score = 3;
-                        else score = 4;
+                        if (elevation > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT) scoreDig = 4;
+                        else scoreDig = 5;
                     }
-                    else score = 0;
+                    else scoreDig = 1;
                     break;
                 case BuildingZone.BUILDING_AREA:
                 case BuildingZone.NEXT_TO_WALL:
-                    score = 1;
+                    scoreDig = 2;
+                    break;
+                case BuildingZone.HOLE:
+                    scoreDig = 3;
                     break;
                 default:
-                    if (flooded) score = 0;
-                    else score = 2;
+                    scoreDig = 4;
                     break;
             }
-            return score;
+            return scoreDig;
         }
 
-        boolean isBetterThan(DiggingSpot d){
+        int depositScore(){
+            if (scoreDeposit >= 0) return scoreDeposit;
+            if (flooded && elevation >= Constants.MIN_DEPTH){
+                scoreDeposit = 4;
+                return scoreDeposit;
+            }
+            if (waterAdj && elevation >= Constants.MIN_DEPTH && elevation < WaterManager.waterLevel + Constants.SAFETY_WALL){
+                scoreDeposit = 4;
+                return scoreDeposit;
+            }
+            switch(zone){
+                case BuildingZone.WALL:
+                case BuildingZone.OUTER_WALL:
+                    if (elevation >= Constants.WALL_HEIGHT) scoreDeposit = 1;
+                    else scoreDeposit = 3;
+                    break;
+                case BuildingZone.HOLE:
+                    scoreDeposit = 2;
+                    break;
+                case BuildingZone.BUILDING_AREA:
+                case BuildingZone.NEXT_TO_WALL:
+                default:
+                    scoreDeposit = 0;
+                    break;
+            }
+            return scoreDeposit;
+        }
+
+
+
+        boolean isBetterDiggingTargetThan(AdjacentSpot d){
             if (!canDig) return false;
             if (d == null) return true;
-            return score() > d.score();
+            return scoreDig() > d.scoreDig();
+        }
+
+        boolean isBetterDepositTargetThan(AdjacentSpot d){
+            if (!canDeposit) return false;
+            if (d == null) return true;
+            return depositScore() > d.depositScore();
         }
 
 
     }
+
 
 }

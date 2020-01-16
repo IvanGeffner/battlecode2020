@@ -67,9 +67,9 @@ public class BugPath {
 
     void moveTo(MapLocation target){
         //No target? ==> bye!
-        if (target == null) target = rc.getLocation();
-        if (Constants.DEBUG == 1) rc.setIndicatorDot(target, 255, 0, 0);
         if (!rc.isReady()) return;
+        if (target == null) target = rc.getLocation();
+        //if (Constants.DEBUG == 1) rc.setIndicatorDot(target, 255, 0, 0);
         if (target == null) return;
 
 
@@ -122,11 +122,13 @@ public class BugPath {
 
         try {
 
-            //TODO: when obstacle moves
+            //TODO: obstacle disappeared??
             if (canMoveArray[dir.ordinal()]){
                 myMove(dir);
-                ++turnsMovingToObstacle;
-                if (turnsMovingToObstacle >= MAX_TURNS_MOVING_TO_OBSTACLE) resetPathfinding();
+                if (lastObstacleFound != null) {
+                    ++turnsMovingToObstacle;
+                    if (turnsMovingToObstacle >= MAX_TURNS_MOVING_TO_OBSTACLE) resetPathfinding();
+                }
                 return;
             } else turnsMovingToObstacle = 0;
 
@@ -345,6 +347,7 @@ public class BugPath {
         lastObstacleFound = null;
         minDistToTarget = Constants.INF;
         states = new HashSet<>();
+        turnsMovingToObstacle = 0;
     }
 
     void softReset(MapLocation target){

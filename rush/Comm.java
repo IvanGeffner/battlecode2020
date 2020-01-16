@@ -315,7 +315,7 @@ public class Comm {
             if (r <= FIRST_ROUND) return 1;
             Transaction[] transactions = rc.getBlock(r-1);
             int ans = 1;
-            if (transactions.length < GameConstants.MAX_BLOCKCHAIN_TRANSACTION_LENGTH) return 1;
+            if (transactions.length < GameConstants.NUMBER_OF_TRANSACTIONS_PER_BLOCK) return 1;
             for (Transaction t : transactions){
                 if (t == null) return 1;
                 if ((MASK^t.getMessage()[6]) != r-1){

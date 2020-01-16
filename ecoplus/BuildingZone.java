@@ -1,15 +1,14 @@
 package ecoplus;
 
-import battlecode.common.Clock;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
-import battlecode.common.RobotType;
+import battlecode.common.*;
 
 public class BuildingZone {
 
     static final int BUILDING_AREA = 1;
     static final int NEXT_TO_WALL = 2;
     static final int WALL = 3;
+    static final int OUTER_WALL = 4;
+    static final int HOLE = 5;
 
     int[][] map;
     int[] message = null;
@@ -43,6 +42,7 @@ public class BuildingZone {
     }
 
     void run(){
+        if (finished())  return;
         while (row < map.length){
             if (Clock.getBytecodesLeft() <= 300) return;
             map[row] = new int[h];
@@ -64,7 +64,72 @@ public class BuildingZone {
             System.out.print(Clock.getBytecodeNum());
             int bit = message[wallCont/32 + 1]&(1 << (wallCont%32));
             if (bit != 0){
-                int x = HQloc.x + X[wallCont], y = HQloc.y + Y[wallCont];
+                MapLocation loc = new MapLocation(HQloc.x + X[wallCont], HQloc.y + Y[wallCont]);
+                MapLocation newLoc = loc.add(Direction.NORTH);
+                if (rc.onTheMap(newLoc)){
+                    if (map[newLoc.x][newLoc.y] == 0){
+                        map[newLoc.x][newLoc.y] = WALL;
+                        if (randomWallLoc == null) randomWallLoc = newLoc;
+                        map[loc.x][loc.y] = NEXT_TO_WALL;
+                    }
+                }
+                newLoc = loc.add(Direction.NORTHEAST);
+                if (rc.onTheMap(newLoc)){
+                    if (map[newLoc.x][newLoc.y] == 0){
+                        map[newLoc.x][newLoc.y] = WALL;
+                        if (randomWallLoc == null) randomWallLoc = newLoc;
+                        map[loc.x][loc.y] = NEXT_TO_WALL;
+                    }
+                }
+                newLoc = loc.add(Direction.EAST);
+                if (rc.onTheMap(newLoc)){
+                    if (map[newLoc.x][newLoc.y] == 0){
+                        map[newLoc.x][newLoc.y] = WALL;
+                        if (randomWallLoc == null) randomWallLoc = newLoc;
+                        map[loc.x][loc.y] = NEXT_TO_WALL;
+                    }
+                }
+                newLoc = loc.add(Direction.SOUTHEAST);
+                if (rc.onTheMap(newLoc)){
+                    if (map[newLoc.x][newLoc.y] == 0){
+                        map[newLoc.x][newLoc.y] = WALL;
+                        if (randomWallLoc == null) randomWallLoc = newLoc;
+                        map[loc.x][loc.y] = NEXT_TO_WALL;
+                    }
+                }
+                newLoc = loc.add(Direction.SOUTH);
+                if (rc.onTheMap(newLoc)){
+                    if (map[newLoc.x][newLoc.y] == 0){
+                        map[newLoc.x][newLoc.y] = WALL;
+                        if (randomWallLoc == null) randomWallLoc = newLoc;
+                        map[loc.x][loc.y] = NEXT_TO_WALL;
+                    }
+                }
+                newLoc = loc.add(Direction.SOUTHWEST);
+                if (rc.onTheMap(newLoc)){
+                    if (map[newLoc.x][newLoc.y] == 0){
+                        map[newLoc.x][newLoc.y] = WALL;
+                        if (randomWallLoc == null) randomWallLoc = newLoc;
+                        map[loc.x][loc.y] = NEXT_TO_WALL;
+                    }
+                }
+                newLoc = loc.add(Direction.WEST);
+                if (rc.onTheMap(newLoc)){
+                    if (map[newLoc.x][newLoc.y] == 0){
+                        map[newLoc.x][newLoc.y] = WALL;
+                        if (randomWallLoc == null) randomWallLoc = newLoc;
+                        map[loc.x][loc.y] = NEXT_TO_WALL;
+                    }
+                }
+                newLoc = loc.add(Direction.NORTHWEST);
+                if (rc.onTheMap(newLoc)){
+                    if (map[newLoc.x][newLoc.y] == 0){
+                        map[newLoc.x][newLoc.y] = WALL;
+                        if (randomWallLoc == null) randomWallLoc = newLoc;
+                        map[loc.x][loc.y] = NEXT_TO_WALL;
+                    }
+                }
+                /*int x = HQloc.x + X[wallCont], y = HQloc.y + Y[wallCont];
                 int i = 9;
                 while (--i >= 0){
                     int newX = x + X[i], newY = y + Y[i];
@@ -76,9 +141,9 @@ public class BuildingZone {
                         map[newX][newY] = WALL;
                         if (randomWallLoc == null) randomWallLoc = new MapLocation(newX, newY);
                         map[x][y] = NEXT_TO_WALL;
-                        if (Constants.DEBUG == 1) rc.setIndicatorDot(new MapLocation(newX, newY), 0, 255, 0);
+                        //if (Constants.DEBUG == 1) rc.setIndicatorDot(new MapLocation(newX, newY), 0, 255, 0);
                     }
-                }
+                }*/
             }
             wallCont--;
             System.out.print(Clock.getBytecodeNum());
@@ -107,12 +172,42 @@ public class BuildingZone {
         int zone = map[loc.x][loc.y];
         switch(zone){
             case WALL:
+            case OUTER_WALL:
                 return true;
             case BUILDING_AREA:
             case NEXT_TO_WALL:
+            case HOLE:
                 return false;
             default:
-                return ((loc.x - HQloc.x + 64 )%2) == 1 || (loc.y - HQloc.y + 64)%2 == 1;
+                if((loc.x - HQloc.x + 64 )%2 == 1 || (loc.y - HQloc.y + 64)%2 == 1){
+                    map[loc.x][loc.y] = OUTER_WALL;
+                    return true;
+                }
+                map[loc.x][loc.y] = HOLE;
+                return false;
+        }
+    }
+
+    int getZone(MapLocation loc){
+        int zone = map[loc.x][loc.y];
+        switch(zone){
+            case WALL:
+                return WALL;
+            case OUTER_WALL:
+                return OUTER_WALL;
+            case BUILDING_AREA:
+                return BUILDING_AREA;
+            case NEXT_TO_WALL:
+                return NEXT_TO_WALL;
+            case HOLE:
+                return HOLE;
+            default:
+                if((loc.x - HQloc.x + 64 )%2 == 1 || (loc.y - HQloc.y + 64)%2 == 1){
+                    map[loc.x][loc.y] = OUTER_WALL;
+                    return OUTER_WALL;
+                }
+                map[loc.x][loc.y] = HOLE;
+                return HOLE;
         }
     }
 

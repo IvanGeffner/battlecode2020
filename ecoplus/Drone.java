@@ -1,9 +1,6 @@
 package ecoplus;
 
-import battlecode.common.Direction;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
-import battlecode.common.RobotInfo;
+import battlecode.common.*;
 
 public class Drone extends MyRobot {
 
@@ -27,6 +24,9 @@ public class Drone extends MyRobot {
     void play(){
         if (comm.singleMessage()) comm.readMessages();
         exploreDrone.update();
+        if (!buildingZone.finished()) System.out.println("Not finished!!!");
+        if (exploreDrone.stuckAlly != null){ rc.setIndicatorLine(rc.getLocation(), exploreDrone.stuckAlly.location, 0, 255, 0);
+        }
         exploreDrone.checkComm();
         tryGrab();
         tryDropEnemy();
@@ -36,9 +36,14 @@ public class Drone extends MyRobot {
             droneBugPath.updateGuns(exploreDrone.cantMove);
             droneBugPath.moveTo(target);
         }
-        comm.readMessages();
         if (comm.wallMes != null) buildingZone.update(comm.wallMes);
         buildingZone.run();
+        System.out.println("Before Reading Messages " + Clock.getBytecodeNum());
+        System.out.println("Message number " + comm.turn);
+        comm.readMessages();
+        System.out.println("Message number " + comm.turn);
+        System.out.println("After Reading Messages " + Clock.getBytecodeNum());
+        //buildingZone.run();
     }
 
     MapLocation getTarget(){
@@ -109,7 +114,7 @@ public class Drone extends MyRobot {
                 robotHeld = exploreDrone.closestMiner;
                 return;
             }
-            if (exploreDrone.stuckAlly != null && rc.canPickUpUnit(exploreDrone.stuckAlly.getID())) {
+            if (exploreDrone.stuckAlly != null && exploreDrone.closestFinishedWall != null && rc.canPickUpUnit(exploreDrone.stuckAlly.getID())) {
                 rc.pickUpUnit(exploreDrone.stuckAlly.getID());
                 robotHeld = exploreDrone.stuckAlly;
                 return;

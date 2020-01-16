@@ -168,7 +168,7 @@ public class DroneBugPath {
             for (Direction dir : dirs) {
                 if (rc.canMove(dir)) {
                     MapLocation newLoc = myLoc.add(dir);
-                    if (comm.dangerMap[newLoc.x][newLoc.y] <= 0 && !cantMove[dir.ordinal()]) canMoveArray[dir.ordinal()] = true;
+                    if (comm.dangerDrone.dangerMap[newLoc.x][newLoc.y] <= 0 && !cantMove[dir.ordinal()]) canMoveArray[dir.ordinal()] = true;
                 }
             }
         } catch (Throwable t){
