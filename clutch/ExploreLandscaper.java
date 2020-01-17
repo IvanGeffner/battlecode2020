@@ -1,4 +1,4 @@
-package ecoplus;
+package clutch;
 
 import battlecode.common.*;
 
@@ -31,6 +31,9 @@ public class ExploreLandscaper {
     int minDistToClosesWallToBuild;
 
     BuildingZone buildingZone;
+
+    MapLocation buildingHurt, urgentFix;
+    int distBuildingHurt, urgentFixType;
 
     int prevLocx = -1, prevLocy = -1;
     boolean fillWater;
@@ -99,6 +102,10 @@ public class ExploreLandscaper {
                     closestWallToBuild = null;
                     return;
                 }
+                if (rc.senseElevation(closestWallToBuild) < Constants.MIN_DEPTH){
+                    closestWallToBuild = null;
+                    return;
+                }
             }
             int d = myLoc.distanceSquaredTo(closestWallToBuild);
             if (d < minDistToClosesWallToBuild) minDistToClosesWallToBuild = d;
@@ -118,6 +125,13 @@ public class ExploreLandscaper {
             RobotInfo[] robots = rc.senseNearbyRobots();
             for (RobotInfo r : robots) {
                 if (!seenEnemy && r.team == rc.getTeam().opponent()) seenEnemy = true;
+                if (r.type.isBuilding() && r.team == rc.getTeam() && r.getDirtCarrying() > 0){
+                    int d = myLoc.distanceSquaredTo(r.location);
+                    if (buildingHurt == null || d < distBuildingHurt){
+                        buildingHurt = r.location;
+                        distBuildingHurt = d;
+                    }
+                }
                 switch (r.type) {
                     case HQ:
                         if (r.team != rc.getTeam()){
@@ -197,47 +211,79 @@ public class ExploreLandscaper {
                 }*/
                 //if (buildingZone.isWall(newLoc)) rc.setIndicatorDot(newLoc, 0, 0, 255);
                 //else rc.setIndicatorDot(newLoc, 0, 255, 0);
-                switch(buildingZone.getZone(newLoc)){
+                /*switch(buildingZone.getZone(newLoc)){
                     case BuildingZone.WALL:
                         int elevation = rc.senseElevation(newLoc);
                         if (elevation < Constants.WALL_HEIGHT){
                             int d = newLoc.distanceSquaredTo(myLoc);
+                            if (rc.senseFlooding(newLoc) && urgentFix == null){
+                                urgentFix = newLoc;
+                                urgentFixType = BuildingZone.WALL;
+                            }
                             if (closestWallToBuild == null || wallType == BuildingZone.OUTER_WALL || d < minDistToClosesWallToBuild){
                                 closestWallToBuild = newLoc;
                                 minDistToClosesWallToBuild = d;
                                 wallType = BuildingZone.WALL;
                                 //rc.setIndicatorDot(newLoc, 255, 0, 0);
                             }
+                            else if (d == minDistToClosesWallToBuild && closestWallToBuild.distanceSquaredTo(buildingZone.HQloc) > newLoc.distanceSquaredTo(buildingZone.HQloc)){
+                                closestWallToBuild = newLoc;
+                                minDistToClosesWallToBuild = d;
+                                wallType = BuildingZone.WALL;
+                            }
                         }
                         break;
                     case BuildingZone.OUTER_WALL:
                         elevation = rc.senseElevation(newLoc);
-                        if (elevation < Constants.WALL_HEIGHT){
+                        if (elevation < Constants.WALL_HEIGHT && elevation > Constants.MIN_DEPTH){
                             int d = newLoc.distanceSquaredTo(myLoc);
-                            if (closestWallToBuild == null || (wallType == BuildingZone.OUTER_WALL && d < minDistToClosesWallToBuild)){
+                            if (closestWallToBuild == null) {
                                 closestWallToBuild = newLoc;
                                 minDistToClosesWallToBuild = d;
                                 wallType = BuildingZone.OUTER_WALL;
-                                //rc.setIndicatorDot(newLoc, 0, 0, 255);
+                            } else if (wallType != BuildingZone.WALL){
+                                if (d < minDistToClosesWallToBuild || (d == minDistToClosesWallToBuild && closestWallToBuild.distanceSquaredTo(buildingZone.HQloc) > newLoc.distanceSquaredTo(buildingZone.HQloc))){
+                                    closestWallToBuild = newLoc;
+                                    minDistToClosesWallToBuild = d;
+                                    wallType = BuildingZone.OUTER_WALL;
+                                }
+                            }
+                        }
+                    case BuildingZone.NEXT_TO_WALL:
+                        if (rc.senseFlooding(newLoc)){
+                            if (urgentFix == null || urgentFixType > BuildingZone.NEXT_TO_WALL){
+                                urgentFix = newLoc;
+                                urgentFixType = BuildingZone.NEXT_TO_WALL;
+                            }
+                        }
+                        break;
+                    case BuildingZone.BUILDING_AREA:
+                        if (rc.senseFlooding(newLoc)){
+                            if (urgentFix == null || urgentFixType > BuildingZone.BUILDING_AREA){
+                                urgentFix = newLoc;
+                                urgentFixType = BuildingZone.BUILDING_AREA;
                             }
                         }
                     default:
                         break;
-                }
+                }*/
 
-                /*if (buildingZone.isWall(newLoc)){
+                if (buildingZone.isWall(newLoc)){
                     int elevation = rc.senseElevation(newLoc);
                     if (elevation >= Constants.MIN_DEPTH && elevation < Constants.WALL_HEIGHT) {
                         int d = newLoc.distanceSquaredTo(myLoc);
                         if (closestWallToBuild == null || d <= minDistToClosesWallToBuild) {
                             if (closestWallToBuild == null || d < minDistToClosesWallToBuild || buildingZone.HQloc.distanceSquaredTo(newLoc) < buildingZone.HQloc.distanceSquaredTo(closestWallToBuild)) {
-                                closestWallToBuild = newLoc;
-                                minDistToClosesWallToBuild = d;
+                                RobotInfo r = rc.senseRobotAtLocation(newLoc);
+                                if (r == null || r.team != rc.getTeam() || !r.type.isBuilding()) {
+                                    closestWallToBuild = newLoc;
+                                    minDistToClosesWallToBuild = d;
+                                }
                             }
                             //if (Constants.DEBUG == 1) rc.setIndicatorLine(rc.getLocation(), newLoc, 0, 0, 255);
                         }
                     }
-                }*/
+                }
             }
         } catch (Throwable t) {
             t.printStackTrace();

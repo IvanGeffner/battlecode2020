@@ -1,0 +1,39 @@
+priority for digging:
+
+- wall with extra height
+- wall with super high height
+- holes (and super deep tiles)
+- flooded holes
+- next to wall cells
+- interior cells
+
+everything else --> NO DIG
+
+priority for depositing:
+
+- flooded interior
+- flooded next to wall
+- flooded wall
+- flooded holes
+- low walls
+
+everything else --> NO DEPOSIT
+
+
+INFINITE DIG:
+
+priority for depositing:
+- flooded interior
+- flooded next to wall
+- flooded wall
+- flooded holes
+- low walls
+
+ELSE:
+
+priority for depositing:
+- flooded interior
+- flooded next to wall
+- flooded wall
+- low walls
+

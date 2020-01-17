@@ -1,6 +1,9 @@
-package ecoplus;
+package landscaperop;
 
-import battlecode.common.*;
+import battlecode.common.Direction;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+import battlecode.common.RobotInfo;
 
 public class Drone extends MyRobot {
 

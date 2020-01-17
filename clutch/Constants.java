@@ -1,4 +1,4 @@
-package ecoplus;
+package clutch;
 
 public class Constants {
 
@@ -17,7 +17,8 @@ public class Constants {
     static final int MIN_DEPTH = -10;
     //static int SAFETY_WALL = 2;
     static final int SAFETY_BYTECODE_MESSAGES = 300;
-    static final int MIN_SAFETY_WALL = 1;
+    static final int MIN_SAFETY_WALL = 2;
     static final int SAFETY_WALL_TURNS = 60;
+    static final int DEBUG_BUGPATH = 1;
 
 }

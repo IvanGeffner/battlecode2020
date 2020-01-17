@@ -1,4 +1,4 @@
-package ecoplus;
+package landscaperop;
 
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
@@ -22,7 +22,7 @@ public class WaterManager {
     void update(){
         int r = rc.getRoundNum();
         while (waterLevel+1 < wHeight.length && r >= wHeight[waterLevel+1]) waterLevel++;
-        while (waterLevelWall+1 < wHeight.length && r+Constants.SAFETY_WALL_TURNS >= wHeight[waterLevelWall+1]) waterLevelWall++;
+        while (waterLevelWall+1 < wHeight.length && r+ Constants.SAFETY_WALL_TURNS >= wHeight[waterLevelWall+1]) waterLevelWall++;
         while (waterLevelPlus+1 < wHeight.length && r+MIN_SAFE_TURNS >= wHeight[waterLevelPlus+1]){
             waterLevelPlus++;
             if (height <= waterLevelPlus){

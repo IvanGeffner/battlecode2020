@@ -1,4 +1,4 @@
-package ecoplus;
+package clutch;
 
 import battlecode.common.Direction;
 import battlecode.common.MapLocation;
@@ -69,25 +69,32 @@ public class BugPath {
         //No target? ==> bye!
         if (!rc.isReady()) return;
         if (target == null) target = rc.getLocation();
-        //if (Constants.DEBUG == 1) rc.setIndicatorDot(target, 255, 0, 0);
-        if (target == null) return;
+        if (Constants.DEBUG == 1) rc.setIndicatorLine(rc.getLocation(), target, 255, 255, 255);
+        //if (target == null) return;
 
 
         //different target? ==> previous data does not help!
         if (prevTarget == null){
+            if (Constants.DEBUG_BUGPATH == 1) System.out.println("Previous target is null! reset!");
             resetPathfinding();
             rotateRight = null;
             rotateRightAux = null;
         }
+
+
         else {
             int distTargets = target.distanceSquaredTo(prevTarget);
             if (distTargets > 0) {
+                if (Constants.DEBUG_BUGPATH == 1) System.out.println("Different target!! Reset!");
                 if (distTargets >= MIN_DIST_RESET){
                     rotateRight = null;
                     rotateRightAux = null;
                     resetPathfinding();
                 }
-                else softReset(target);
+                else{
+                    if (Constants.DEBUG_BUGPATH == 1) System.out.println("Different target!! Soft Reset!");
+                    softReset(target);
+                }
             }
         }
 
@@ -104,7 +111,8 @@ public class BugPath {
             moveSafe();
             return;
         }
-        if (d <= minDistToTarget){
+        if (d < minDistToTarget){
+            if (Constants.DEBUG_BUGPATH == 1) System.out.println("resetting on d < mindist");
             resetPathfinding();
             minDistToTarget = d;
             minLocationToTarget = myLoc;
@@ -114,25 +122,34 @@ public class BugPath {
         Direction dir = myLoc.directionTo(target);
         if (lastObstacleFound == null){
             if (tryGreedyMove()){
+                if (Constants.DEBUG_BUGPATH == 1) System.out.println("No obstacle and could move greedily :)");
                 resetPathfinding();
                 return;
             }
         }
-        else dir = myLoc.directionTo(lastObstacleFound);
+        else{
+            dir = myLoc.directionTo(lastObstacleFound);
+            rc.setIndicatorDot(lastObstacleFound, 0, 0, 0);
+        }
 
         try {
 
-            //TODO: obstacle disappeared??
             if (canMoveArray[dir.ordinal()]){
                 myMove(dir);
                 if (lastObstacleFound != null) {
+                    if (Constants.DEBUG_BUGPATH == 1) System.out.println("Could move to obstacle?!");
                     ++turnsMovingToObstacle;
-                    if (turnsMovingToObstacle >= MAX_TURNS_MOVING_TO_OBSTACLE) resetPathfinding();
+                    if (turnsMovingToObstacle >= MAX_TURNS_MOVING_TO_OBSTACLE){
+                        if (Constants.DEBUG_BUGPATH == 1) System.out.println("obstacle reset!!");
+                        resetPathfinding();
+                    }
                 }
                 return;
             } else turnsMovingToObstacle = 0;
 
             checkRotate(dir);
+
+            if (Constants.DEBUG_BUGPATH == 1) System.out.println(rotateRight + " " + dir.name());
 
             //I rotate clockwise or counterclockwise (depends on 'rotateRight'). If I try to go out of the map I change the orientation
             //Note that we have to try at most 16 times since we can switch orientation in the middle of the loop. (It can be done more efficiently)
@@ -143,7 +160,7 @@ public class BugPath {
                     myMove(dir);
                     return;
                 }
-                if (!rc.canSenseLocation(newLoc)) rotateRight = !rotateRight;
+                if (!rc.onTheMap(newLoc)) rotateRight = !rotateRight;
                     //If I could not go in that direction and it was not outside of the map, then this is the latest obstacle found
                 else lastObstacleFound = newLoc;
                 if (rotateRight) dir = dir.rotateRight();
@@ -343,7 +360,7 @@ public class BugPath {
 
     //clear some of the previous data
     void resetPathfinding(){
-        //if (rc.getID() == 13977) System.out.println("reset!");
+        if (Constants.DEBUG_BUGPATH == 1) System.out.println("reset!");
         lastObstacleFound = null;
         minDistToTarget = Constants.INF;
         states = new HashSet<>();
@@ -351,7 +368,7 @@ public class BugPath {
     }
 
     void softReset(MapLocation target){
-        //if (rc.getID() == 13977) System.out.println("soft reset!");
+        if (Constants.DEBUG_BUGPATH == 1) System.out.println("soft reset!");
         if (minLocationToTarget != null) minDistToTarget = minLocationToTarget.distanceSquaredTo(target);
         else resetPathfinding();
     }

@@ -1,7 +1,6 @@
-package ecoplus;
+package landscaperop;
 
 import battlecode.common.*;
-import com.sun.source.tree.ForLoopTree;
 
 public class Landscaper extends MyRobot {
 
@@ -21,6 +20,7 @@ public class Landscaper extends MyRobot {
     boolean spareDirt;
     boolean full;
     boolean alert = false;
+    int myDirt;
 
     Landscaper(RobotController rc){
         this.rc = rc;
@@ -39,41 +39,37 @@ public class Landscaper extends MyRobot {
         exploreLandscaper.update();
         /*if (Constants.DEBUG == 1 && exploreLandscaper.closestWallToBuild != null){
             System.out.println(exploreLandscaper.closestWallToBuild);
-            rc.setIndicatorDot(exploreLandscaper.closestWallToBuild, 255, 255, 255);
+            rc.setIndicatorLine(rc.getLocation(), exploreLandscaper.closestWallToBuild, 255, 255, 255);
         }*/
         exploreLandscaper.checkComm();
         bugPath.update();
         if (exploreLandscaper.dronesFound) bugPath.updateDrones(danger);
         if (Constants.DEBUG == 1) System.out.println("Bytecode post bugPath update " + Clock.getBytecodeNum());
-        //if (Constants.DEBUG == 1 && comm.EnemyHQLoc != null) rc.setIndicatorLine(rc.getLocation(), comm.EnemyHQLoc, 0, 255, 0);
 
-        //if (rc.getRoundNum() == 320 && buildingZone.finished()) buildingZone.debugPrint();
         boolean flee = false;
         if (bugPath.shouldFlee && WaterManager.closestSafeCell != null){
             bugPath.moveTo(WaterManager.closestSafeCell);
             flee = true;
         }
         if (Constants.DEBUG == 1) System.out.println("Bytecode post trying to flee water " + Clock.getBytecodeNum());
-        tryMoveToWall();
+        checkUrgentMoves();
+        //tryMoveToWall();
         tryBury();
         tryDigAndDeposit();
         if (Constants.DEBUG == 1){
             if (bestSpotDig != null){
-                System.out.println("Best Spot Dig " + bestSpotDig.score());
+                System.out.println("Best Spot Dig " + bestSpotDig.scoreDig());
                 rc.setIndicatorDot(bestSpotDig.loc, 255, 0, 0);
             }
             if (bestSpotDeposit != null){
-                System.out.println("Best Spot deposit " + bestSpotDeposit.score());
+                System.out.println("Best Spot deposit " + bestSpotDeposit.scoreDeposit());
                 rc.setIndicatorDot(bestSpotDeposit.loc, 0, 255, 0);
             }
         }
-        //if (Constants.DEBUG == 1) System.out.println("Bytecode post dig/bury " + Clock.getBytecodeNum());
         if (!flee){
             MapLocation target = getTarget();
             bugPath.moveTo(target);
-            //if (rc.isReady() && !bugPath.canMoveArray[Direction.CENTER.ordinal()]) bugPath.moveSafe();
         }
-        //tryDig();
         if (comm.wallMes != null) buildingZone.update(comm.wallMes);
         buildingZone.run();
         comm.readMessages();
@@ -87,7 +83,33 @@ public class Landscaper extends MyRobot {
         if (enemyHQ != null) return enemyHQ;
         MapLocation loc = getBestGuess();
         return loc;
-        //return exploreLandscaper.exploreTarget();
+    }
+
+    void checkUrgentMoves(){
+        try {
+            if (!rc.isReady()) return;
+            if (!buildingZone.finished()) return;
+            if (buildingZone.isWall(rc.getLocation())) return;
+            //if (buildingZone.isWall(rc.getLocation())) return;
+            if (exploreLandscaper.urgentFix != null) {
+                int d = rc.getLocation().distanceSquaredTo(exploreLandscaper.urgentFix);
+                if (d > 2) bugPath.moveTo(exploreLandscaper.urgentFix);
+                return;
+            }
+            if (exploreLandscaper.buildingHurt != null) {
+                int d = rc.getLocation().distanceSquaredTo(exploreLandscaper.buildingHurt);
+                if (d > 2) bugPath.moveTo(exploreLandscaper.buildingHurt);
+                else if (rc.isReady()) {
+                    Direction dir = rc.getLocation().directionTo(exploreLandscaper.buildingHurt);
+                    if (rc.canDigDirt(dir)) rc.digDirt(dir);
+                }
+                return;
+            }
+            if (exploreLandscaper.closestWallToBuild == null) return;
+            bugPath.moveTo(exploreLandscaper.closestWallToBuild);
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
     }
 
     void tryMoveToWall(){
@@ -141,46 +163,17 @@ public class Landscaper extends MyRobot {
         }
     }
 
-    void tryBuildWall(){
-        try {
-            if (!rc.isReady()) return;
-            if (exploreLandscaper.closestWallToBuild == null) return;
-            myLoc = rc.getLocation();
-            if (myLoc.distanceSquaredTo(exploreLandscaper.closestWallToBuild) > 2) return;
-            Direction dir = myLoc.directionTo(exploreLandscaper.closestWallToBuild);
-            if (rc.canDepositDirt(dir)){
-                rc.depositDirt(dir);
-            }
-        } catch (Throwable t){
-            t.printStackTrace();
-        }
-    }
-
-    /*
-    void tryDig(){
-        try {
-            if (!rc.isReady()) return;
-            if (!buildingZone.finished()) return;
-            if (rc.getDirtCarrying() >= RobotType.LANDSCAPER.dirtLimit) return;
-            if (bestSpotDig != null && bestSpotDig.score() > FIXABLE_FLOODED){
-                rc.digDirt(bestSpotDig.dir);
-            }
-        } catch (Throwable t){
-            t.printStackTrace();
-        }
-    }*/
-
     void tryDigAndDeposit(){
         try {
             if (!rc.isReady()) return;
             if (!buildingZone.finished()) return;
-            //if(Constants.DEBUG == 1) System.out.println("Before adjacent analysis " + Clock.getBytecodeNum());
             bestSpotDig = null; bestSpotDeposit = null;
             myLoc = rc.getLocation();
             sight = rc.getCurrentSensorRadiusSquared();
             spareDirt = rc.getDirtCarrying() > 1;
             full = rc.getDirtCarrying() >= RobotType.LANDSCAPER.dirtLimit;
             alert = false;
+            myDirt = rc.getDirtCarrying();
 
 
             AdjacentSpot s1 = new AdjacentSpot(Direction.NORTH);
@@ -192,8 +185,6 @@ public class Landscaper extends MyRobot {
             AdjacentSpot s7 = new AdjacentSpot(Direction.WEST);
             AdjacentSpot s8 = new AdjacentSpot(Direction.NORTHWEST);
             AdjacentSpot s0 = new AdjacentSpot(Direction.CENTER);
-
-            //if(Constants.DEBUG == 1) System.out.println("After adjacent analysis " + Clock.getBytecodeNum());
 
             if (s0.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s0;
             if (s1.isBetterDepositTargetThan(bestSpotDeposit)) bestSpotDeposit = s1;
@@ -207,14 +198,10 @@ public class Landscaper extends MyRobot {
 
             if (rc.getDirtCarrying() > 0){
                 if (bestSpotDeposit != null){
-                    if (bestSpotDeposit.score() <= WALL_LOW) {
+                    if (bestSpotDeposit.scoreDeposit() <= WALL_LOW) {
                         rc.depositDirt(bestSpotDeposit.dir);
                         return;
                     }
-                    /*if (bestSpotDeposit.depositScore() >= DEPOSIT_HOLE && full){
-                        rc.depositDirt(bestSpotDeposit.dir);
-                        return;
-                    }*/
                 }
             }
 
@@ -232,30 +219,14 @@ public class Landscaper extends MyRobot {
 
                 if (bestSpotDig != null){
                     if (rc.getDirtCarrying() > 0){
-                        if (bestSpotDig.score() >= HOLE){
+                        if (bestSpotDig.scoreDig() >= HOLE){
                             rc.digDirt(bestSpotDig.dir);
                             return;
                         }
                     } else{
-                        if (bestSpotDig.score() >= BUILDING_AREA){
-                            rc.digDirt(bestSpotDig.dir);
-                            return;
-                        }
+                        rc.digDirt(bestSpotDig.dir);
                     }
                 }
-
-                /*if (alert && bestSpotDig != null && bestSpotDig.score() >= FLOODED_OUTER_WALL){
-                    rc.digDirt(bestSpotDig.dir);
-                    return;
-                }*/
-
-                /*
-                if (bestSpotDig != null && bestSpotDig.score() > FIXABLE_FLOODED) {
-                    if (bestSpotDig.score() >= HOLE || rc.getDirtCarrying() == 0) {
-                        rc.digDirt(bestSpotDig.dir);
-                        return;
-                    }
-                }*/
             }
 
         } catch (Throwable t){
@@ -263,46 +234,17 @@ public class Landscaper extends MyRobot {
         }
     }
 
-
-    /*static final int WATER_INSIDE = 0;
-    static final int WATER_WALL = 1;
-    static final int WATER_HOLE = 2;
-    static final int WALL_LOW = 3;
-    static final int INSIDE_PRECISE = 4;
-    static final int WALL_PRECISE = 5;
-    static final int*/
-
     static final int FLOODED_INTERIOR = 0;
     static final int FLOODED_NEXT_TO_WALL = 1;
     static final int FLOODED_WALL = 2;
     static final int FLOODED_OUTER_WALL = 3;
     static final int FLOODED_HOLE = 4;
     static final int WALL_LOW = 5;
-    static final int BUILDING_AREA_PRECISE = 6;
-    static final int NEXT_TO_WALL_AREA_PRECISE = 7;
-    static final int WALL_PRECISE = 8;
-    static final int WALL_PERFECT_HEIGHT = 9;
-    static final int OUTER_WALL_PERFECT_HEIGHT = 10;
-    static final int HOLE_PRECISE = 11;
-    static final int BUILDING_AREA = 12;
-    static final int NEXT_TO_WALL = 13;
-    static final int HOLE_FLOODED_LOW_DIRT = 14;
-    static final int HOLE = 15;
-    static final int WALL_HIGH = 16;
-    static final int WALL_SUPER_HIGH = 17;
-
-
-    //static final int MINIMUM_PRIORITY = 0;
-    //static final int FIXABLE_FLOODED = 1;
-    //static final int WALL_LOW = 2;
-    //static final int WALL_PRECISE = 3;
-    //static final int FIXED_FLOODED = 4;
-    //static final int BUILDING_AREA = 5;
-    //static final int NEXT_TO_WALL = 6;
-    //static final int HOLE = 7;
-    //static final int WALL_SUPER_HIGH = 8;
-    //static final int WALL_HIGH = 9;
-    //static final int MAXIMUM_PRIORITY = 10;
+    static final int BUILDING_AREA = 6;
+    static final int NEXT_TO_WALL = 7;
+    static final int HOLE = 8;
+    static final int WALL_HIGH = 9;
+    static final int WALL_SUPER_HIGH = 10;
 
 
     class AdjacentSpot {
@@ -315,9 +257,7 @@ public class Landscaper extends MyRobot {
         boolean flooded;
         boolean waterAdj;
 
-        int score = -1;
-
-        //int scoreDig, scoreDeposit;
+        int scoreDig = -1, scoreDeposit = -1;
 
         //TODO: what if can't sense?
         AdjacentSpot(Direction dir){
@@ -340,119 +280,61 @@ public class Landscaper extends MyRobot {
                     }
 
                 }
-                computeScore();
             } catch(Throwable t){
                 t.printStackTrace();
             }
         }
 
-        int flood(){
-            if (flooded) return 1;
-            if (!waterAdj) return -1;
-            if (elevation == WaterManager.waterLevel + waterManager.safetyWall()) return 0;
-            if (elevation < WaterManager.waterLevel + waterManager.safetyWall()) return 1;
-            return -1;
+        boolean flood(int e){
+            if (flooded || waterAdj && e < WaterManager.waterLevel + waterManager.safetyWall()) return true;
+            return false;
         }
 
-        int computeScore(){
-            if (elevation < Constants.MIN_DEPTH && zone != BuildingZone.BUILDING_AREA && zone != BuildingZone.NEXT_TO_WALL && zone != BuildingZone.WALL){
-                score = HOLE;
-                return score;
+        int computeScore(int e, int d){
+            if (e < Constants.MIN_DEPTH && zone != BuildingZone.BUILDING_AREA && zone != BuildingZone.NEXT_TO_WALL && zone != BuildingZone.WALL){
+                return HOLE;
             }
-            int f = flood();
             switch(zone){
                 case BuildingZone.BUILDING_AREA:
-                    switch(f){
-                        case 1:
-                            score = FLOODED_INTERIOR;
-                            break;
-                        case 0:
-                            score = BUILDING_AREA_PRECISE;
-                            break;
-                        default:
-                            score = BUILDING_AREA;
-                            break;
-                    }
-                    return score;
+                    if (flood(e)) return FLOODED_INTERIOR;
+                    return BUILDING_AREA;
                 case BuildingZone.NEXT_TO_WALL:
-                    switch(f){
-                        case 1:
-                            score = FLOODED_NEXT_TO_WALL;
-                            break;
-                        case 0:
-                            score = NEXT_TO_WALL_AREA_PRECISE;
-                            break;
-                        default:
-                            score = NEXT_TO_WALL;
-                            break;
-                    }
-                    return score;
+                    if (flood(e)) return FLOODED_NEXT_TO_WALL;
+                    return NEXT_TO_WALL;
                 case BuildingZone.HOLE:
-                    if (spareDirt) {
-                        switch(f){
-                            case 1:
-                                score = FLOODED_HOLE;
-                                break;
-                            case 0:
-                                score = HOLE_PRECISE;
-                                break;
-                            default:
-                                score = HOLE;
-                                break;
-                        }
+                    if (myDirt > d) {
+                        if (flood(e)) return FLOODED_HOLE;
+                        return HOLE;
                     }
-                    else {
-                        switch (f){
-                            case 1:
-                            case 0:
-                                score = HOLE_FLOODED_LOW_DIRT;
-                                break;
-                            default:
-                                score = HOLE;
-                        }
-                    }
-                    return score;
+                    return HOLE;
                 case BuildingZone.OUTER_WALL:
-                    if (elevation < Constants.WALL_HEIGHT){
-                        score = WALL_LOW;
-                        if (f > 0) score = FLOODED_OUTER_WALL;
-                        return score;
+                    if (e < Constants.WALL_HEIGHT){
+                        if (flood(e)) return FLOODED_OUTER_WALL;
+                        return WALL_LOW;
                     }
-                    if (elevation == Constants.WALL_HEIGHT){
-                        score = OUTER_WALL_PERFECT_HEIGHT;
-                        return score;
-                    }
-                    if (elevation > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT){
-                        score = WALL_SUPER_HIGH;
-                        return score;
-                    }
-                    score = WALL_HIGH;
-                    return score;
+                    else if (e > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT) return WALL_SUPER_HIGH;
+                    return WALL_HIGH;
                 case BuildingZone.WALL:
                 default:
-                    if (elevation < Constants.WALL_HEIGHT){
-                        score = WALL_LOW;
-                        if (f > 0) score = FLOODED_WALL;
-                        return score;
+                    if (e < Constants.WALL_HEIGHT){
+                        if (flood(e)) return FLOODED_WALL;
+                        return WALL_LOW;
                     }
-                    if (elevation == Constants.WALL_HEIGHT){
-                        score = WALL_PERFECT_HEIGHT;
-                        return score;
-                    }
-                    if (elevation > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT){
-                        score = WALL_SUPER_HIGH;
-                        return score;
-                    }
-                    score = WALL_HIGH;
-                    return score;
+                    else if (e > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT) return WALL_SUPER_HIGH;
+                    return WALL_HIGH;
             }
         }
 
-        int score(){
-            if (score >= 0) return score;
-            int ans = computeScore();
-            if (ans <= FLOODED_WALL) alert = true;
-            return ans;
+
+
+        int scoreDig(){
+            if (scoreDig < 0) scoreDig = computeScore(elevation-1, 0);
+            return scoreDig;
+        }
+
+        int scoreDeposit(){
+            if (scoreDeposit < 0) scoreDeposit = computeScore(elevation, 1);
+            return scoreDeposit;
         }
 
         void computeWaterAdj(){
@@ -508,13 +390,13 @@ public class Landscaper extends MyRobot {
         boolean isBetterDiggingTargetThan(AdjacentSpot d){
             if (!canDig) return false;
             if (d == null) return true;
-            return score() > d.score();
+            return scoreDig() > d.scoreDig();
         }
 
         boolean isBetterDepositTargetThan(AdjacentSpot d){
             if (!canDeposit) return false;
             if (d == null) return true;
-            return score() < d.score();
+            return scoreDeposit() < d.scoreDeposit();
         }
 
 
