@@ -1,6 +1,9 @@
-package clutch;
+package turtle;
 
-import battlecode.common.*;
+import battlecode.common.Direction;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+import battlecode.common.RobotInfo;
 
 public class Drone extends MyRobot {
 
@@ -11,8 +14,6 @@ public class Drone extends MyRobot {
     BuildingZone buildingZone;
 
     RobotInfo robotHeld;
-
-    int round;
 
     Drone(RobotController rc){
         this.rc = rc;
@@ -25,7 +26,6 @@ public class Drone extends MyRobot {
 
     void play(){
         if (comm.singleMessage()) comm.readMessages();
-        round = rc.getRoundNum();
         exploreDrone.update();
         //if (!buildingZone.finished()) System.out.println("Not finished!!!");
         if (exploreDrone.stuckAlly != null){ rc.setIndicatorLine(rc.getLocation(), exploreDrone.stuckAlly.location, 0, 255, 0);
@@ -58,12 +58,6 @@ public class Drone extends MyRobot {
                 return exploreDrone.exploreTarget();
             }
             else{
-                if (shouldPrepareClutch()){
-                    if (exploreDrone.closestEnemyBuilding != null) return exploreDrone.closestEnemyBuilding;
-                    MapLocation enemyHQ = comm.getEnemyHQLoc();
-                    if (enemyHQ != null) return enemyHQ;
-                    return exploreDrone.exploreTarget();
-                }
                 if (exploreDrone.closestFinishedWall != null) return exploreDrone.closestFinishedWall;
                 else return exploreDrone.exploreTarget();
             }
@@ -73,7 +67,6 @@ public class Drone extends MyRobot {
         if (exploreDrone.stuckAlly != null && exploreDrone.closestFinishedWall != null){
             return exploreDrone.stuckAlly.location;
         }
-        if (shouldPrepareClutch() && exploreDrone.closestLandscaperMyTeam != null) return exploreDrone.closestLandscaperMyTeam.location;
         MapLocation enemyHQ = comm.getEnemyHQLoc();
         if (enemyHQ != null) return enemyHQ;
         MapLocation loc = getBestGuess();
@@ -129,13 +122,6 @@ public class Drone extends MyRobot {
                 robotHeld = exploreDrone.stuckAlly;
                 return;
             }
-            if (shouldPrepareClutch()){
-                if (exploreDrone.closestLandscaperMyTeam != null && rc.canPickUpUnit(exploreDrone.closestLandscaperMyTeam.getID())) {
-                    rc.pickUpUnit(exploreDrone.closestLandscaperMyTeam.getID());
-                    robotHeld = exploreDrone.closestLandscaperMyTeam;
-                    return;
-                }
-            }
         } catch (Throwable t){
             t.printStackTrace();
         }
@@ -171,11 +157,6 @@ public class Drone extends MyRobot {
         if (!rc.isCurrentlyHoldingUnit()) return;
         if (robotHeld == null || robotHeld.team != rc.getTeam()) return;
         if (!buildingZone.finished()) return;
-        //boolean dropOnEnemyBuilding = rc.getRoundNum() >= Constants.MIN_TURN_CLUTCH;
-        if (robotHeld.type == RobotType.LANDSCAPER && shouldPrepareClutch()){
-            tryDropNextToBuilding();
-            return;
-        }
         MapLocation myLoc = rc.getLocation();
         try {
             Direction dir = Direction.NORTH;
@@ -195,37 +176,6 @@ public class Drone extends MyRobot {
         } catch (Throwable t){
             t.printStackTrace();
         }
-    }
-
-    void tryDropNextToBuilding(){
-        if (exploreDrone.closestEnemyBuilding == null) return;
-        MapLocation myLoc = rc.getLocation();
-        try {
-            Direction dir = Direction.NORTH;
-            for (int i = 0; i < 8; ++i){
-                MapLocation newLoc = myLoc.add(dir);
-                if (!rc.canDropUnit(dir)){
-                    dir = dir.rotateLeft();
-                    continue;
-                }
-                if (exploreDrone.closestEnemyBuilding.distanceSquaredTo(newLoc) <= 2){
-                    rc.dropUnit(dir);
-                    robotHeld = null;
-                    return;
-                }
-                dir = dir.rotateLeft();
-            }
-        } catch (Throwable t){
-            t.printStackTrace();
-        }
-    }
-
-    boolean shouldClutch(){
-        return round >= Constants.MIN_TURN_CLUTCH;
-    }
-
-    boolean shouldPrepareClutch(){
-        return round >= Constants.MIN_TURN_PREPARE_CLUTCH;
     }
 
 }

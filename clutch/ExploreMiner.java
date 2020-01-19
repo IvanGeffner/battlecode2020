@@ -111,6 +111,12 @@ public class ExploreMiner {
                     case HQ:
                         if (r.team != rc.getTeam()){
                             enemyHQ = r.location;
+                        } else {
+                            int d = myLoc.distanceSquaredTo(r.location);
+                            if (closestNetGun == null || d < myLoc.distanceSquaredTo(closestNetGun)){
+                                closestNetGun = r.location;
+                            }
+                            danger.addSafe(r.location);
                         }
                         break;
                     case REFINERY:

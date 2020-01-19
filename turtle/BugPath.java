@@ -1,4 +1,4 @@
-package clutch;
+package turtle;
 
 import battlecode.common.Direction;
 import battlecode.common.MapLocation;
@@ -235,15 +235,16 @@ public class BugPath {
         int i = 9;
         while (--i >= 0){
             if (!canMoveArray[i]) continue;
+            if (safe[i]) minDists[i] = Constants.INF;
             int dist = minDists[i];
-            if (safe[i]) dist = Constants.INF;
             if (dist > maxMinDist) maxMinDist = minDists[i];
         }
         if (maxMinDist >= Constants.MIN_DIST_FLEE) maxMinDist = Constants.MIN_DIST_FLEE;
         //if (Constants.DEBUG == 1) System.out.println("MAXMIN DIST " + maxMinDist);
         i = 9;
         while (--i >= 0){
-            if (canMoveArray[i] && !safe[i] && minDists[i] < maxMinDist){
+            if (canMoveArray[i] && minDists[i] < maxMinDist){
+                if (i == Direction.CENTER.ordinal()) System.out.println("CANT STAY BABY");
                 canMoveArray[i] = false;
                 //if (Constants.DEBUG == 1) System.out.println("Cant move!! " + dirs[i].name());
             }

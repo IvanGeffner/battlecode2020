@@ -1,147 +1,117 @@
-package clutch;
+package turtle;
 
 import battlecode.common.*;
 
-public class ExploreLandscaper {
+public class ExploreMiner {
 
+    final int MAX_SOUP_ARRAY = 50;
+    final int SOUP_BIT = 2;
     final int EXPLORE_BIT = 1;
+    final int INDEX_OFFSET = 2;
+    final int RESET_BASE = 1;
+    final int SOUPS_CHECKED = 8;
+    final int MAX_EXPLORE_TIME = 1500;
+    final int MIN_DIST_NET_GUN = 48;
+    final int MIN_DIST_NET_GUN_NEAR_HQ = 8;
+    final int MIN_BYTECODE_AFTER_CHECKING = 3500;
+
     int[][] map;
     RobotController rc;
+    MapLocation closestSoup;
+    MapLocation closestRefineryLoc;
+    MapLocation HQloc;
+    Direction[] dirs = Direction.values();
+    MapLocation[] soups = new MapLocation[MAX_SOUP_ARRAY];
+    int currentIndex = 0;
     MapLocation myLoc;
     MapLocation exploreTarget = null;
     int H, W;
     Direction[][] dirPath;
-    MapLocation closestWater = null;
+    int soupCont = 0;
+    int totalSoupCount = 0;
+    //int diffSoupCount = 0;
+    MapLocation closestWater;
+    MapLocation closestNetGun;
+    boolean dronesFound = false;
 
     MapLocation enemyHQ;
     Team myTeam;
 
-    final int MAX_EXPLORE_TIME = 1500;
-
     boolean seenLandscaper = false, seenEnemy = false;
-    boolean dronesFound = false;
     Comm comm;
-
-    MapLocation closestEnemyBuilding, closestNetGun;
     Danger danger;
-    int distToEnemyBuilding;
-
-    MapLocation closestWallToBuild;
-    int wallType;
-    int minDistToClosesWallToBuild;
-
-    BuildingZone buildingZone;
-
-    MapLocation buildingHurt, urgentFix;
-    int distBuildingHurt, urgentFixType;
-
-    int prevLocx = -1, prevLocy = -1;
-    boolean fillWater;
-
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
     //int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2,0,-4,4,0,-1,1,-4,4,-4,4,-1,1,-3,3,-3,3,-2,2,-4,4,-4,4,-2,2};
 
-    ExploreLandscaper(RobotController rc, Comm comm, Danger danger, BuildingZone buildingZone) {
+    ExploreMiner(RobotController rc, Comm comm, Danger danger) {
         this.rc = rc;
         this.comm = comm;
         this.danger = danger;
-        this.buildingZone = buildingZone;
         myTeam = rc.getTeam();
         H = rc.getMapHeight();
         W = rc.getMapWidth();
         map = new int[W][H];
+        findHQ();
+        closestRefineryLoc = HQloc;
+        closestNetGun = HQloc;
         dirPath = new Direction[36][0];
         fillDirPath();
     }
 
+    void findHQ() {
+        try {
+            MapLocation myLoc = rc.getLocation();
+            for (Direction dir : dirs) {
+                MapLocation newLoc = myLoc.add(dir);
+                if (!rc.canSenseLocation(newLoc)) continue;
+                RobotInfo r = rc.senseRobotAtLocation(newLoc);
+                if (r != null && r.type == RobotType.HQ && r.team == rc.getTeam()) {
+                    HQloc = newLoc;
+                    return;
+                }
+            }
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+    }
 
-    void update() {
+    void updateMiner() {
         myLoc = rc.getLocation();
-        boolean shouldCheckCells = true;
-        prevLocx = myLoc.x;
-        prevLocy = myLoc.y;
-        //checkWater();
-        checkClosestBuilding();
-        checkClosestWallToBuild();
         checkUnits();
         if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
-        if (shouldCheckCells) checkCells();
+        checkSoup();
+        if (Constants.DEBUG == 1) System.out.println("After checking soup: " + Clock.getBytecodeNum());
+        checkCells();
         if (Constants.DEBUG == 1) System.out.println("After checking cells: " + Clock.getBytecodeNum());
+        checkComm();
     }
 
-    void checkWater(){
-        try{
-            if (closestWater != null && rc.canSenseLocation(closestWater)) {
-                if (!rc.senseFlooding(closestWater)) closestWater = null;
-            }
-        } catch (Throwable t){
-            t.printStackTrace();
-        }
-    }
-
-    void checkClosestBuilding(){
-        try{
-            if (closestEnemyBuilding != null && rc.canSenseLocation(closestEnemyBuilding)) {
-                RobotInfo r = rc.senseRobotAtLocation(closestEnemyBuilding);
-                if (r == null || r.getTeam() != rc.getTeam().opponent() || !r.getType().isBuilding()){
-                    closestEnemyBuilding = null;
-                    distToEnemyBuilding = 0;
-                }
-            }
-        } catch (Throwable t){
-            t.printStackTrace();
-        }
-    }
-
-    void checkClosestWallToBuild(){
-        try{
-            if (closestWallToBuild == null) return;
-            if (rc.canSenseLocation(closestWallToBuild)) {
-                if (rc.senseElevation(closestWallToBuild) >= Constants.WALL_HEIGHT){
-                    closestWallToBuild = null;
-                    return;
-                }
-                if (rc.senseElevation(closestWallToBuild) < Constants.MIN_DEPTH){
-                    closestWallToBuild = null;
-                    return;
-                }
-            }
-            int d = myLoc.distanceSquaredTo(closestWallToBuild);
-            if (d < minDistToClosesWallToBuild) minDistToClosesWallToBuild = d;
-        } catch (Throwable t){
-            t.printStackTrace();
-        }
+    void updateBuilder(){
+        myLoc = rc.getLocation();
+        checkUnits();
     }
 
     void checkUnits() {
-            danger.init(myLoc);
-            dronesFound = false;
         try {
+            if (rc.canSenseLocation(closestRefineryLoc)) {
+                RobotInfo r = rc.senseRobotAtLocation(closestRefineryLoc);
+                if (r == null || r.team != rc.getTeam() || r.type != RobotType.REFINERY) closestRefineryLoc = HQloc;
+            }
             if (closestNetGun != null && rc.canSenseLocation(closestNetGun)) {
                 RobotInfo r = rc.senseRobotAtLocation(closestNetGun);
-                if (r == null || r.team != rc.getTeam() || r.type != RobotType.NET_GUN) closestNetGun = null;
+                if (r == null || r.team != rc.getTeam() || r.type != RobotType.NET_GUN) closestNetGun = HQloc;
             }
+            danger.init(myLoc);
             RobotInfo[] robots = rc.senseNearbyRobots();
+            int bestDist = myLoc.distanceSquaredTo(closestRefineryLoc);
             for (RobotInfo r : robots) {
                 if (!seenEnemy && r.team == rc.getTeam().opponent()) seenEnemy = true;
-                if (r.type.isBuilding() && r.team == rc.getTeam() && r.getDirtCarrying() > 0){
-                    int d = myLoc.distanceSquaredTo(r.location);
-                    if (buildingHurt == null || d < distBuildingHurt){
-                        buildingHurt = r.location;
-                        distBuildingHurt = d;
-                    }
-                }
                 switch (r.type) {
                     case HQ:
                         if (r.team != rc.getTeam()){
                             enemyHQ = r.location;
-                            int t = myLoc.distanceSquaredTo(r.location);
-                            if (closestEnemyBuilding == null || t < distToEnemyBuilding){
-                                closestEnemyBuilding = r.location;
-                                distToEnemyBuilding = t;
-                            }
-                        } else{
+                        } else {
                             int d = myLoc.distanceSquaredTo(r.location);
                             if (closestNetGun == null || d < myLoc.distanceSquaredTo(closestNetGun)){
                                 closestNetGun = r.location;
@@ -150,14 +120,11 @@ public class ExploreLandscaper {
                         }
                         break;
                     case REFINERY:
-                    case FULFILLMENT_CENTER:
-                    case VAPORATOR:
-                    case DESIGN_SCHOOL:
-                        if (r.team != rc.getTeam()){
-                            int t = myLoc.distanceSquaredTo(r.location);
-                            if (closestEnemyBuilding == null || t < distToEnemyBuilding){
-                                closestEnemyBuilding = r.location;
-                                distToEnemyBuilding = t;
+                        if (r.team == rc.getTeam()) {
+                            int dist = myLoc.distanceSquaredTo(r.location);
+                            if (dist < bestDist) {
+                                bestDist = dist;
+                                closestRefineryLoc = r.location;
                             }
                         }
                         break;
@@ -167,14 +134,8 @@ public class ExploreLandscaper {
                         }
                         break;
                     case NET_GUN:
-                        if (r.team != rc.getTeam()){
-                            comm.sendGun(r.location);
-                            int t = myLoc.distanceSquaredTo(r.location);
-                            if (closestEnemyBuilding == null || t < distToEnemyBuilding){
-                                closestEnemyBuilding = r.location;
-                                distToEnemyBuilding = t;
-                            }
-                        } else{
+                        if (r.team != rc.getTeam()) comm.sendGun(r.location);
+                        else{
                             int d = myLoc.distanceSquaredTo(r.location);
                             if (closestNetGun == null || d < myLoc.distanceSquaredTo(closestNetGun)){
                                 closestNetGun = r.location;
@@ -195,110 +156,119 @@ public class ExploreLandscaper {
         }
     }
 
+    void checkSoup(){
+        try {
+            if (closestSoup != null){
+                if (rc.canSenseLocation(closestSoup)){
+                    if (rc.senseSoup(closestSoup) <= 0){
+                        closestSoup = null;
+                        int prevNumber = map[closestSoup.x][closestSoup.y];
+                        if ((prevNumber & SOUP_BIT) > 0) {
+                            soups[(prevNumber >>> INDEX_OFFSET)] = null;
+                            map[closestSoup.x][closestSoup.y] = prevNumber & RESET_BASE;
+                        }
+                    }
+                }
+            }
+            int bestDist = 0;
+            if (closestSoup != null){
+                bestDist = myLoc.distanceSquaredTo(closestSoup);
+            }
+            MapLocation[] seenSoups = rc.senseNearbySoup();
+            for (MapLocation soup : seenSoups) {
+                int d = myLoc.distanceSquaredTo(soup);
+                if (closestSoup == null || d < bestDist){
+                    closestSoup = soup;
+                    bestDist = d;
+                }
+                int s = rc.senseSoup(soup);
+                soupCont += s;
+                if ((map[soup.x][soup.y] & SOUP_BIT) == 0) {
+                    map[soup.x][soup.y] |= SOUP_BIT | (currentIndex << INDEX_OFFSET);
+                    soups[currentIndex] = soup;
+                    currentIndex = (currentIndex + 1) % MAX_SOUP_ARRAY;
+                    totalSoupCount += s;
+                }
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
     void checkCells() {
         int sight = rc.getCurrentSensorRadiusSquared();
-        if (!buildingZone.finished()) return;
+        //closestSoup = null;
+        //soupCont = 0;
         MapLocation newLoc = rc.getLocation();
         Direction[] dirArray = dirPath[sight];
-        urgentFix = null;
-        //closestWallToBuild = null;
-        //int bestDist = 0;
         int i = dirArray.length;
+        boolean foundSafe = false;
         try {
             while (--i >= 0) {
+                if (Clock.getBytecodesLeft() <= MIN_BYTECODE_AFTER_CHECKING) return;
                 newLoc = newLoc.add(dirArray[i]);
                 if (!rc.canSenseLocation(newLoc)) continue;
-                /*int prevNumber = map[newLoc.x][newLoc.y] | EXPLORE_BIT;
-                map[newLoc.x][newLoc.y] = prevNumber;
-                if (comm.map[newLoc.x][newLoc.y] == 1){
-                    RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                    if (r == null || (r.type != RobotType.NET_GUN && r.type != RobotType.HQ) || r.team != rc.getTeam().opponent()){
-                        comm.sendGunDestroyed(newLoc);
-                    }
-                }*/
-                //if (buildingZone.isWall(newLoc)) rc.setIndicatorDot(newLoc, 0, 0, 255);
-                //else rc.setIndicatorDot(newLoc, 0, 255, 0);
-                switch(buildingZone.getZone(newLoc)){
-                    case BuildingZone.WALL:
-                        int elevation = rc.senseElevation(newLoc);
-                        if (elevation < Constants.WALL_HEIGHT){
-                            int d = newLoc.distanceSquaredTo(myLoc);
-                            if (rc.senseFlooding(newLoc) && urgentFix == null){
-                                urgentFix = newLoc;
-                                urgentFixType = BuildingZone.WALL;
-                            }
-                            if (closestWallToBuild == null || wallType == BuildingZone.OUTER_WALL || d < minDistToClosesWallToBuild){
-                                closestWallToBuild = newLoc;
-                                minDistToClosesWallToBuild = d;
-                                wallType = BuildingZone.WALL;
-                                //rc.setIndicatorDot(newLoc, 255, 0, 0);
-                            }
-                            else if (d == minDistToClosesWallToBuild && closestWallToBuild.distanceSquaredTo(buildingZone.HQloc) > newLoc.distanceSquaredTo(buildingZone.HQloc)){
-                                closestWallToBuild = newLoc;
-                                minDistToClosesWallToBuild = d;
-                                wallType = BuildingZone.WALL;
-                            }
-                        }
-                        break;
-                    case BuildingZone.OUTER_WALL:
-                        elevation = rc.senseElevation(newLoc);
-                        if (elevation < Constants.WALL_HEIGHT && elevation > Constants.MIN_DEPTH){
-                            int d = newLoc.distanceSquaredTo(myLoc);
-                            if (closestWallToBuild == null) {
-                                closestWallToBuild = newLoc;
-                                minDistToClosesWallToBuild = d;
-                                wallType = BuildingZone.OUTER_WALL;
-                            } else if (wallType != BuildingZone.WALL){
-                                if (d < minDistToClosesWallToBuild || (d == minDistToClosesWallToBuild && closestWallToBuild.distanceSquaredTo(buildingZone.HQloc) > newLoc.distanceSquaredTo(buildingZone.HQloc))){
-                                    closestWallToBuild = newLoc;
-                                    minDistToClosesWallToBuild = d;
-                                    wallType = BuildingZone.OUTER_WALL;
-                                }
-                            }
-                        }
-                        break;
-                    case BuildingZone.NEXT_TO_WALL:
-                        if (rc.senseFlooding(newLoc)){
-                            if (urgentFix == null || urgentFixType > BuildingZone.NEXT_TO_WALL){
-                                urgentFix = newLoc;
-                                urgentFixType = BuildingZone.NEXT_TO_WALL;
-                            }
-                        }
-                        break;
-                    case BuildingZone.BUILDING_AREA:
-                        if (rc.senseFlooding(newLoc)){
-                            if (urgentFix == null || urgentFixType > BuildingZone.BUILDING_AREA){
-                                urgentFix = newLoc;
-                                urgentFixType = BuildingZone.BUILDING_AREA;
-                            }
-                        }
-                    default:
-                        break;
+                int prevNumber = map[newLoc.x][newLoc.y] | EXPLORE_BIT;
+                if (!foundSafe && rc.senseElevation(newLoc) > WaterManager.waterLevelPlus){
+                    foundSafe = true;
+                    WaterManager.closestSafeCell = newLoc;
+                    WaterManager.height = rc.senseElevation(newLoc);
                 }
-
-                /*if (buildingZone.isWall(newLoc)){
-                    int elevation = rc.senseElevation(newLoc);
-                    if (elevation >= Constants.MIN_DEPTH && elevation < Constants.WALL_HEIGHT) {
-                        int d = newLoc.distanceSquaredTo(myLoc);
-                        if (closestWallToBuild == null || d <= minDistToClosesWallToBuild) {
-                            if (closestWallToBuild == null || d < minDistToClosesWallToBuild || buildingZone.HQloc.distanceSquaredTo(newLoc) < buildingZone.HQloc.distanceSquaredTo(closestWallToBuild)) {
-                                RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                                if (r == null || r.team != rc.getTeam() || !r.type.isBuilding()) {
-                                    closestWallToBuild = newLoc;
-                                    minDistToClosesWallToBuild = d;
-                                }
-                            }
-                            //if (Constants.DEBUG == 1) rc.setIndicatorLine(rc.getLocation(), newLoc, 0, 0, 255);
-                        }
+                /*int soup = rc.senseSoup(newLoc);
+                if (soup > 0 && !rc.senseFlooding(newLoc)) {
+                    if (closestSoup == null) closestSoup = newLoc;
+                    soupCont += soup;
+                    if ((prevNumber & SOUP_BIT) == 0) {
+                        prevNumber = prevNumber | SOUP_BIT | (currentIndex << INDEX_OFFSET);
+                        soups[currentIndex] = newLoc;
+                        currentIndex = (currentIndex + 1) % MAX_SOUP_ARRAY;
+                        totalSoupCount += soup;
                     }
+                } else {
+                    if ((prevNumber & SOUP_BIT) > 0) {
+                        soups[(prevNumber >>> INDEX_OFFSET)] = null;
+                        prevNumber = prevNumber & RESET_BASE;
+                    }
+                    if (closestWater == null && rc.senseFlooding(newLoc)) closestWater = newLoc;
                 }*/
+                if ((prevNumber & SOUP_BIT) > 0) {
+                    if (rc.senseSoup(newLoc) <= 0) {
+                        soups[(prevNumber >>> INDEX_OFFSET)] = null;
+                        prevNumber = prevNumber & RESET_BASE;
+                    }
+                }
+                map[newLoc.x][newLoc.y] = prevNumber;
             }
         } catch (Throwable t) {
             t.printStackTrace();
         }
     }
 
-    /*MapLocation exploreTarget() {
+    MapLocation getBestTarget() {
+        if (closestSoup != null) return closestSoup;
+        int bestDist = Constants.INF;
+        MapLocation ans = null;
+        int aux = currentIndex;
+        boolean found = false;
+        for (int i = 1; i < SOUPS_CHECKED; ++i) {
+            int index = (aux + MAX_SOUP_ARRAY - i) % MAX_SOUP_ARRAY;
+            MapLocation soupLoc = soups[index];
+            if (soupLoc == null) {
+                if (!found) currentIndex = index;
+                continue;
+            }
+            found = true;
+            int dist = myLoc.distanceSquaredTo(soupLoc);
+            if (dist < bestDist) {
+                bestDist = dist;
+                ans = soupLoc;
+            }
+        }
+        return ans;
+    }
+
+    MapLocation exploreTarget() {
+        if (Constants.DEBUG == 1) System.out.println("Trying to go for explore target!  "  + Clock.getBytecodeNum());
         if (exploreTarget != null) {
             if (map[exploreTarget.x][exploreTarget.y] > 0) exploreTarget = null;
         }
@@ -319,8 +289,13 @@ public class ExploreLandscaper {
                 exploreTarget = newLoc;
             }
         }
+        if (exploreTarget == null) if (Constants.DEBUG == 1) System.out.println("null explore Target!");
         return exploreTarget;
-    }*/
+    }
+
+    MapLocation getClosestSoup() {
+        return closestSoup;
+    }
 
     void checkComm(){
         //if (!comm.upToDate()) return; already checked there lol
@@ -339,8 +314,30 @@ public class ExploreLandscaper {
             comm.sendEnemyUnit();
             return;
         }
-        if (enemyHQ != null) comm.sendHQLoc(enemyHQ, 0);
+        if (enemyHQ != null) comm.sendHQLoc(enemyHQ, 1);
+        if (totalSoupCount/ Constants.SOUP_PER_MINER > comm.maxSoup/ Constants.SOUP_PER_MINER && comm.maxSoup/ Constants.SOUP_PER_MINER < Constants.MAX_MINERS){
+            if (closestSoup != null) comm.sendMaxSoup(totalSoupCount, closestSoup);
+        } else if (BuildingManager.nVaporators(totalSoupCount) > BuildingManager.nVaporators(comm.maxSoup)) if (closestSoup != null) comm.sendMaxSoup(totalSoupCount, closestSoup);
         if (closestWater != null) comm.sendWater(closestWater);
+    }
+
+    boolean shouldBuildNetGun(){
+        return false;
+        /*
+        if (!rc.isReady()) return false;
+        if (!dronesFound) return false;
+        if (rc.getTeamSoup() <= RobotType.NET_GUN.cost) return false;
+        if (enemyHQ == null) enemyHQ = comm.enemyHQLoc;
+        if (enemyHQ != null){
+            if (comm.buildings[RobotType.LANDSCAPER.ordinal()] > 0){
+                if (myLoc.distanceSquaredTo(enemyHQ) <= 25){
+                    if (myLoc.distanceSquaredTo(closestNetGun) > MIN_DIST_NET_GUN_NEAR_HQ) return true;
+                }
+            }
+        }
+        if (myLoc.distanceSquaredTo(closestNetGun) <= MIN_DIST_NET_GUN) return false;
+        if (soupCont < RobotType.NET_GUN.cost/2) return false;
+        return true;*/
     }
 
 
@@ -382,5 +379,4 @@ public class ExploreLandscaper {
         dirPath[34] = new Direction[]{Direction.NORTHWEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTHEAST, Direction.NORTHEAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTHWEST, Direction.SOUTHWEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTHWEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTHWEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.CENTER};
         dirPath[35] = new Direction[]{Direction.NORTHWEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTHEAST, Direction.NORTHEAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTHWEST, Direction.SOUTHWEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTHWEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTHWEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.WEST, Direction.WEST, Direction.NORTH, Direction.NORTH, Direction.NORTH, Direction.EAST, Direction.EAST, Direction.SOUTH, Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.CENTER};
     }
-
 }

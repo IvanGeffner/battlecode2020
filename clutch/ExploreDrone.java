@@ -16,6 +16,9 @@ public class ExploreDrone {
     Direction[][] dirPath;
     MapLocation closestWater = null;
 
+    MapLocation closestEnemyBuilding = null;
+    int distToEnemyBuilding;
+
     MapLocation enemyHQ;
     Team myTeam;
 
@@ -33,6 +36,8 @@ public class ExploreDrone {
     MapLocation closestFinishedWall = null;
 
     RobotInfo stuckAlly;
+    RobotInfo closestLandscaperMyTeam;
+    int minDistLandscaperMyTeam;
 
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
@@ -79,10 +84,19 @@ public class ExploreDrone {
             closestLandscaper = null;
             cantMove = new boolean[9];
             stuckAlly = null;
+            closestLandscaperMyTeam = null;
+            closestEnemyBuilding = null;
             int minDistStuckAlly = 0;
             RobotInfo[] robots = rc.senseNearbyRobots();
             for (RobotInfo r : robots) {
                 if (!seenEnemy && r.team == rc.getTeam().opponent()) seenEnemy = true;
+                if (r.type.isBuilding() && r.getTeam() != rc.getTeam()){
+                    int d = myLoc.distanceSquaredTo(r.location);
+                    if (closestEnemyBuilding == null || d < distToEnemyBuilding){
+                        distToEnemyBuilding = d;
+                        closestEnemyBuilding = r.location;
+                    }
+                }
                 switch (r.type) {
                     case HQ:
                         if (r.team != rc.getTeam()){
@@ -100,11 +114,17 @@ public class ExploreDrone {
                             seenLandscaper = true;
                             if (closestLandscaper == null || myLoc.distanceSquaredTo(closestLandscaper.location) > myLoc.distanceSquaredTo(r.location)) closestLandscaper = r;
                         } else{
+                            int d = myLoc.distanceSquaredTo(r.location);
                             if (buildingZone.finished() && !buildingZone.isWall(r.location)){
-                                int d = myLoc.distanceSquaredTo(r.location);
                                 if(stuckAlly == null || d < minDistStuckAlly){
                                     minDistStuckAlly = d;
                                     stuckAlly = r;
+                                }
+                            }
+                            if (closestLandscaperMyTeam == null || d < minDistLandscaperMyTeam){
+                                if (!closeToBuilding(r.location)) {
+                                    minDistLandscaperMyTeam = d;
+                                    closestLandscaperMyTeam = r;
                                 }
                             }
                         }
@@ -126,6 +146,21 @@ public class ExploreDrone {
         } catch (Throwable t) {
             t.printStackTrace();
         }
+    }
+
+    boolean closeToBuilding(MapLocation loc){
+        try {
+            MapLocation newLoc = loc.add(Direction.NORTH);
+            if (rc.canSenseLocation(newLoc)) {
+                RobotInfo r = rc.senseRobotAtLocation(newLoc);
+                if (r != null && r.getTeam() != rc.getTeam() && r.getType().isBuilding()){
+                    return true;
+                }
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+        return false;
     }
 
     void addDanger(MapLocation loc){

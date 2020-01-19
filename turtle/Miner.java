@@ -1,4 +1,4 @@
-package clutch;
+package turtle;
 
 import battlecode.common.*;
 
@@ -116,11 +116,6 @@ public class Miner extends MyRobot {
     }
 
     MapLocation getBuildingTarget() {
-        if (explore.HQloc == null) return null;
-        RobotType r = BuildingManager.getNextBuilding(comm);
-        if (r != null && rc.getTeamSoup() >= r.cost){
-            if (rc.getLocation().distanceSquaredTo(explore.HQloc) <= Constants.DIST_TO_BUILD) return explore.HQloc;
-        }
         return null;
     }
 
@@ -184,7 +179,7 @@ public class Miner extends MyRobot {
         if (!rc.isReady()) return;
         if (!comm.upToDate()) return;
         if (!buildingZone.finished()) return;
-        if (rc.getLocation().distanceSquaredTo(explore.HQloc) > Constants.DIST_TO_BUILD) return;
+        //if (rc.getLocation().distanceSquaredTo(explore.HQloc) > Constants.DIST_TO_BUILD) return;
         RobotType type = BuildingManager.getNextBuilding(comm);
         if (type == null) return;
         if (Constants.DEBUG == 1) System.out.println(type.name());
@@ -310,13 +305,13 @@ public class Miner extends MyRobot {
                case VAPORATOR:
                    switch (zone) {
                        case BuildingZone.BUILDING_AREA:
-                           score = 2;
+                           score = 0;
                            return score;
                        case BuildingZone.NEXT_TO_WALL:
-                           score = 1;
+                           score = 2;
                            return score;
                        default:
-                           score = 0;
+                           score = 2;
                            return score;
                    }
                case FULFILLMENT_CENTER:
@@ -385,19 +380,6 @@ public class Miner extends MyRobot {
         }
 
         void checkBuild(){
-            if (buildType == RobotType.FULFILLMENT_CENTER || buildType == RobotType.DESIGN_SCHOOL || buildType == RobotType.VAPORATOR) {
-                switch (zone) {
-                    case BuildingZone.HOLE:
-                        canBuild = canBuild && (buildingZone.HQloc.distanceSquaredTo(loc) <= maxRadius);
-                        return;
-                    case BuildingZone.OUTER_WALL:
-                        canBuild = canBuild && height >= Constants.WALL_HEIGHT && (buildingZone.HQloc.distanceSquaredTo(loc) <= maxRadius) && buildingZone.canBuild(loc);
-                        return;
-                    case BuildingZone.WALL:
-                        canBuild = false;
-                        return;
-                }
-            }
         }
 
         boolean isBetter(BuildingSpot s){

@@ -1,4 +1,4 @@
-package clutch;
+package turtle;
 
 import battlecode.common.*;
 
@@ -51,6 +51,12 @@ public class Landscaper extends MyRobot {
             bugPath.moveTo(WaterManager.closestSafeCell);
             flee = true;
         }
+        if (buildingZone.HQloc != null && rc.getLocation().distanceSquaredTo(buildingZone.HQloc) > 2){
+            bugPath.moveTo(buildingZone.HQloc);
+        } else if (buildingZone.HQloc != null){
+            tryDigAndDeposit();
+        }
+        /*
         if (Constants.DEBUG == 1) System.out.println("Bytecode post trying to flee water " + Clock.getBytecodeNum());
         checkUrgentMoves();
         //tryMoveToWall();
@@ -69,7 +75,7 @@ public class Landscaper extends MyRobot {
         if (!flee){
             MapLocation target = getTarget();
             bugPath.moveTo(target);
-        }
+        }*/
         if (comm.wallMes != null) buildingZone.update(comm.wallMes);
         buildingZone.run();
         comm.readMessages();
@@ -203,10 +209,8 @@ public class Landscaper extends MyRobot {
 
             if (rc.getDirtCarrying() > 0){
                 if (bestSpotDeposit != null){
-                    if (bestSpotDeposit.scoreDeposit() <= WALL_LOW) {
                         rc.depositDirt(bestSpotDeposit.dir);
                         return;
-                    }
                 }
             }
 
@@ -223,14 +227,8 @@ public class Landscaper extends MyRobot {
 
 
                 if (bestSpotDig != null){
-                    if (rc.getDirtCarrying() > 0){
-                        if (exploreLandscaper.urgentFix == null && bestSpotDig.scoreDig() >= HOLE){
-                            rc.digDirt(bestSpotDig.dir);
-                            return;
-                        }
-                    } else{
                         rc.digDirt(bestSpotDig.dir);
-                    }
+                        return;
                 }
             }
 
@@ -276,6 +274,15 @@ public class Landscaper extends MyRobot {
                     elevation = rc.senseElevation(loc);
                     flooded = rc.senseFlooding(loc);
                     RobotInfo r = rc.senseRobotAtLocation(loc);
+                    if (buildingZone.HQloc == null){
+                        canDig = canDeposit = false;
+                    } else{
+                        int d = loc.distanceSquaredTo(buildingZone.HQloc);
+                        if (d == 0 || d > 2){
+                            canDeposit = false;
+                        }
+                        else canDig = false;
+                    }
                     //TODO: wtf how to access building HP
                     if (r != null && r.getType().isBuilding()) elevation += 15;
                     if (sight >= 8){
@@ -296,38 +303,9 @@ public class Landscaper extends MyRobot {
         }
 
         int computeScore(int e, int d){
-            if (e < Constants.MIN_DEPTH && zone != BuildingZone.BUILDING_AREA && zone != BuildingZone.NEXT_TO_WALL && zone != BuildingZone.WALL){
-                return HOLE;
-            }
-            switch(zone){
-                case BuildingZone.BUILDING_AREA:
-                    if (flood(e)) return FLOODED_INTERIOR;
-                    return BUILDING_AREA;
-                case BuildingZone.NEXT_TO_WALL:
-                    if (flood(e)) return FLOODED_NEXT_TO_WALL;
-                    return NEXT_TO_WALL;
-                case BuildingZone.HOLE:
-                    if (myDirt > d) {
-                        if (flood(e)) return FLOODED_HOLE;
-                        return HOLE;
-                    }
-                    return HOLE;
-                case BuildingZone.OUTER_WALL:
-                    if (e < Constants.WALL_HEIGHT){
-                        if (flood(e)) return FLOODED_OUTER_WALL;
-                        return WALL_LOW;
-                    }
-                    else if (e > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT) return WALL_SUPER_HIGH;
-                    return WALL_HIGH;
-                case BuildingZone.WALL:
-                default:
-                    if (e < Constants.WALL_HEIGHT){
-                        if (flood(e)) return FLOODED_WALL;
-                        return WALL_LOW;
-                    }
-                    else if (e > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT) return WALL_SUPER_HIGH;
-                    return WALL_HIGH;
-            }
+            int dd = 0;
+            if (dir == Direction.CENTER) dd+= 150;
+            return elevation-dd;
         }
 
 
@@ -400,6 +378,7 @@ public class Landscaper extends MyRobot {
 
         boolean isBetterDepositTargetThan(AdjacentSpot d){
             if (!canDeposit) return false;
+            if (scoreDeposit() == 0) return false;
             if (d == null) return true;
             return scoreDeposit() < d.scoreDeposit();
         }
