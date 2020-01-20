@@ -10,12 +10,14 @@ public class DroneChecker {
     DroneChecker(RobotController rc, Comm comm){
         this.rc = rc;
         this.comm = comm;
+        dirPath = new Direction[51][0];
         fill();
     }
 
     void checkForNetGuns(){
         try {
             int sight = rc.getCurrentSensorRadiusSquared();
+            if (sight > 50) sight = 50;
             MapLocation newLoc = rc.getLocation();
             Direction[] dirArray = dirPath[sight];
             int i = dirArray.length;

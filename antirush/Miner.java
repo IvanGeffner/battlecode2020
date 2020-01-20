@@ -20,6 +20,7 @@ public class Miner extends MyRobot {
     final int MIN_SOUP_FOR_REFINERY = 1000;
     final int MIN_DIST_FOR_REFINERY = 50;
     final int MAX_BUILD_TURNS = 6;
+    final int DESPERATE_TURNS = 30;
 
     int maxRadius = 0;
 
@@ -255,10 +256,20 @@ public class Miner extends MyRobot {
                 System.out.println("Best spot " + bestBuildingSpot.score() + " " + bestBuildingSpot.zone);
             }
 
-            if (bestBuildingSpot != null && rc.canBuildRobot(buildType, bestBuildingSpot.dir) && bestBuildingSpot.score() > 0){
-                if (tryToBuildTurns > MAX_BUILD_TURNS || bestBuildingSpot.score() >= 2) {
+            if (bestBuildingSpot != null && rc.canBuildRobot(buildType, bestBuildingSpot.dir)){
+                if (bestBuildingSpot.score() >= 2) {
                     rc.buildRobot(buildType, bestBuildingSpot.dir);
                     comm.sendMessage(comm.BUILDING_TYPE, type.ordinal());
+                } else if (bestBuildingSpot.score() >= 1){
+                    if (tryToBuildTurns >= MAX_BUILD_TURNS){
+                        rc.buildRobot(buildType, bestBuildingSpot.dir);
+                        comm.sendMessage(comm.BUILDING_TYPE, type.ordinal());
+                    }
+                } else{
+                    if (tryToBuildTurns >= DESPERATE_TURNS){
+                        rc.buildRobot(buildType, bestBuildingSpot.dir);
+                        comm.sendMessage(comm.BUILDING_TYPE, type.ordinal());
+                    }
                 }
             }
         } catch (Throwable t){
