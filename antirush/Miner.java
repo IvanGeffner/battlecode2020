@@ -49,14 +49,10 @@ public class Miner extends MyRobot {
         bugPath.update();
         if (explore.dronesFound){
             bugPath.updateDrones(danger);
-            //MAYBE BUILD NETGUN?
             if (explore.shouldBuildNetGun()) build(RobotType.NET_GUN);
         }
-        RobotType type = BuildingManager.getNextBuilding(comm);
-        if (type != null && type == typeToBuild && BuildingManager.haveSoupToSpawn(rc, type)){
-            ++tryToBuildTurns;
-        } else tryToBuildTurns = 0;
-        typeToBuild = type;
+        updateBuildingTurns();
+        System.out.println(typeToBuild);
 
         if (Constants.DEBUG == 1) System.out.println("Bytecode post bugPath update " + Clock.getBytecodeNum());
 
@@ -70,6 +66,9 @@ public class Miner extends MyRobot {
 
         if (Constants.DEBUG == 1) System.out.println("Bytecode post trying to flee water " + Clock.getBytecodeNum());
 
+        //TRY TO BUILD
+        tryBuilding();
+
         //IF I CAN STAY ON MY LOCATION, TRY BUILDING REFINERY OR TRY MINING
         Direction miningDir = getMiningDir();
         if (miningDir != null && bugPath.canMoveArray[Direction.CENTER.ordinal()]) {
@@ -79,10 +78,9 @@ public class Miner extends MyRobot {
 
         if (Constants.DEBUG == 1) System.out.println("Bytecode post mining " + Clock.getBytecodeNum());
 
-        //TRY DEPOSITING OR BUILDING
+        //TRY DEPOSITING
 
         tryDeposit();
-        tryBuilding();
 
         if (Constants.DEBUG == 1) System.out.println("Bytecode post deposit/build " + Clock.getBytecodeNum());
 
@@ -107,6 +105,14 @@ public class Miner extends MyRobot {
        if (comm.wallMes != null) buildingZone.update(comm.wallMes);
        buildingZone.run();
 
+    }
+
+    void updateBuildingTurns(){
+        RobotType type = BuildingManager.getNextBuilding(comm);
+        if (type != null && type == typeToBuild && BuildingManager.haveSoupToSpawn(rc, type)){
+            ++tryToBuildTurns;
+        } else tryToBuildTurns = 0;
+        typeToBuild = type;
     }
 
     MapLocation getTarget(){
