@@ -181,23 +181,51 @@ public class ExploreMiner {
             }
             MapLocation[] seenSoups = rc.senseNearbySoup();
             for (MapLocation soup : seenSoups) {
-                int d = myLoc.distanceSquaredTo(soup);
-                if (closestSoup == null || d < bestDist){
-                    closestSoup = soup;
-                    bestDist = d;
-                }
-                int s = rc.senseSoup(soup);
-                soupCont += s;
-                if ((map[soup.x][soup.y] & SOUP_BIT) == 0) {
-                    map[soup.x][soup.y] |= SOUP_BIT | (currentIndex << INDEX_OFFSET);
-                    soups[currentIndex] = soup;
-                    currentIndex = (currentIndex + 1) % MAX_SOUP_ARRAY;
-                    totalSoupCount += s;
+                if (isAccessible(soup)) {
+                    int d = myLoc.distanceSquaredTo(soup);
+                    if (closestSoup == null || d < bestDist) {
+                        closestSoup = soup;
+                        bestDist = d;
+                    }
+                    int s = rc.senseSoup(soup);
+                    soupCont += s;
+                    if ((map[soup.x][soup.y] & SOUP_BIT) == 0) {
+                        map[soup.x][soup.y] |= SOUP_BIT | (currentIndex << INDEX_OFFSET);
+                        soups[currentIndex] = soup;
+                        currentIndex = (currentIndex + 1) % MAX_SOUP_ARRAY;
+                        totalSoupCount += s;
+                    }
                 }
             }
         } catch (Throwable t){
             t.printStackTrace();
         }
+    }
+
+    boolean isAccessible(MapLocation loc){
+        try {
+            MapLocation newLoc = loc.add(Direction.CENTER);
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.NORTH);
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.NORTHWEST);
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.WEST);
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.SOUTHWEST);
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.SOUTH);
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.SOUTHEAST);
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.EAST);
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            newLoc = loc.add(Direction.NORTHEAST);
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+        return false;
     }
 
     void checkCells() {
