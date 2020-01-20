@@ -14,7 +14,7 @@ public class Constants {
     static final int RUSH_TURN = 300;
     static final int WALL_HEIGHT = 8;
     static final int MAX_DIFF_HEIGHT = 25;
-    static final int MIN_DEPTH = -10;
+    static final int MIN_DEPTH = -20;
     //static int SAFETY_WALL = 2;
     static final int SAFETY_BYTECODE_MESSAGES = 300;
     static final int MIN_SAFETY_WALL = 2;
