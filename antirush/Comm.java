@@ -376,10 +376,10 @@ public class Comm {
     }
 
     boolean shouldBuildVaporators(){
-        if (!wallFinished){
+        /*if (!wallFinished){
             //System.out.println("Wall is not finished!");
             return false;
-        }
+        }*/
         return rc.getRoundNum() >= Constants.MIN_TURN_BUILD_VAPORATORS && rc.getRoundNum() <= Constants.MAX_TURN_BUILD_VAPORATORS;
     }
 

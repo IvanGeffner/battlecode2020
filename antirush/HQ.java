@@ -5,8 +5,6 @@ import battlecode.common.*;
 public class HQ extends MyRobot {
 
     RobotController rc;
-    Direction[] nonZeroDirs = new Direction[]{Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTHWEST, Direction.WEST, Direction.NORTHWEST};
-    MapLocation[] surroundings;
 
     HQWall hqWall;
     BuildingZone buildingZone;
@@ -21,6 +19,7 @@ public class HQ extends MyRobot {
     int MIN_MAX_SOUP = 1000;
     Direction dirToSoup = null;
     boolean rush;
+    DroneChecker droneChecker;
 
     final int MINERS_BEFORE_FULFILLMENT = 5;
     final int BUILDER_SOUP = 1080;
@@ -31,8 +30,6 @@ public class HQ extends MyRobot {
     HQ(RobotController rc){
         this.rc = rc;
         comm = new Comm(rc);
-        surroundings = new MapLocation[8];
-        for (int i = 0; i < 8; ++i) surroundings[i] = rc.getLocation().add(nonZeroDirs[i]);
         myLoc = rc.getLocation();
         myX = myLoc.x; myY = myLoc.y;
         buildingZone = new BuildingZone(rc);
@@ -45,11 +42,15 @@ public class HQ extends MyRobot {
         if (comm.singleMessage()) comm.readMessages();
         if (comm.maxSoup > maxSoup) maxSoup = comm.maxSoup;
         checkRush();
-        if (comm.isRush()) System.out.println("RUSHHH LOL");
-        else System.out.println("NOT RUSH");
-
-
+        //if (comm.isRush()) System.out.println("RUSHHH LOL");
+        //else System.out.println("NOT RUSH");
         netGunManager.tryShoot();
+        if (rush){
+            if (droneChecker == null) droneChecker = new DroneChecker(rc, comm);
+            droneChecker.checkForNetGuns();
+        }
+
+
         getDirToSoup();
         if (shouldBuildMiner()) buildMiner(false);
         if (shouldBuildBuilder()){
