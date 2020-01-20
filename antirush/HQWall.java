@@ -78,7 +78,7 @@ public class HQWall {
                     dir = dir.rotateLeft();
                     //int x = newLoc.x - myLocX, y = newLoc.y - myLocY;
                 }
-                if (interior) {
+                if (interior || loc.distanceSquaredTo(myLoc) == 0) {
                     //if (Constants.DEBUG == 1) System.out.println("I'm interior!");
                     int bit = posToBit[loc.x - myLocX][loc.y - myLocY];
                     //if (Constants.DEBUG == 1) System.out.println((loc.x - myLocX) + " " + (loc.y - myLocY));
