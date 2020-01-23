@@ -8,15 +8,19 @@ public class RushManager {
     Comm comm;
     Team myTeam, opponent;
 
+    Direction[] dirs = Direction.values();
     int[] enemiesSeen;
     int freeDrones = 0;
     int robotLength;
     MapLocation fullfillmentLocation = null;
+    MapLocation designLocation = null;
     int closestMinerDist;
     MapLocation closestMiner;
 
     int turnEnemyBuilt = -100;
     boolean enemyBuildingsInSight;
+
+    final int CRITICAL_HP_HQ = 25;
 
     RushManager (RobotController rc, Comm comm){
         this.rc = rc;
@@ -24,6 +28,7 @@ public class RushManager {
         myTeam = rc.getTeam(); opponent = myTeam.opponent();
         robotLength = RobotType.values().length;
         if (rc.getType() == RobotType.FULFILLMENT_CENTER) fullfillmentLocation = rc.getLocation();
+        if (rc.getType() == RobotType.DESIGN_SCHOOL) designLocation = rc.getLocation();
     }
 
     RobotType rushBuild(){
@@ -33,6 +38,11 @@ public class RushManager {
         int myDrones = comm.buildings[RobotType.DELIVERY_DRONE.ordinal()];
         int theirLandscapers = enemiesSeen[RobotType.LANDSCAPER.ordinal()];
         int theirMiners = enemiesSeen[RobotType.MINER.ordinal()];
+
+        if (emergencyLandscaper()){
+            System.out.println("EMERGENCY LANDSCAPER");
+            return RobotType.LANDSCAPER;
+        }
 
         //FULFILLMENT CANT BUILD
         if (fullfillmentCantBuild()){
@@ -54,6 +64,39 @@ public class RushManager {
         }
 
         return null;
+    }
+
+    boolean emergencyLandscaper(){
+        if (designLocation == null) return false;
+        if (comm.HQLoc == null) return false;
+        if (!rc.canSenseLocation(designLocation)) return false;
+        if (!rc.canSenseLocation(comm.HQLoc)) return false;
+
+        try {
+            RobotInfo hqInfo = rc.senseRobotAtLocation(comm.HQLoc);
+            if (hqInfo == null) return false;
+            if (hqInfo.getType() != RobotType.HQ) return false;
+            if (hqInfo.getTeam() != myTeam) return false;
+            if (hqInfo.getDirtCarrying() <= CRITICAL_HP_HQ) return false;
+            int elev = rc.senseElevation(designLocation);
+            for (Direction dir : dirs){
+                if (dir == Direction.CENTER) continue;
+                MapLocation newLoc = designLocation.add(dir);
+                if (!rc.canSenseLocation(newLoc)) continue;
+                if (rc.senseFlooding(newLoc)) continue;
+                int e = rc.senseElevation(newLoc);
+                if ((elev-e)*(elev-e) <= GameConstants.MAX_DIRT_DIFFERENCE*GameConstants.MAX_DIRT_DIFFERENCE){
+                    RobotInfo r = rc.senseRobotAtLocation(newLoc);
+                    if (r == null){
+                        if (newLoc.distanceSquaredTo(comm.HQLoc) <= 2) return true;
+                    }
+                }
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+        return false;
+
     }
 
     boolean fullfillmentCantBuild(){
@@ -98,6 +141,9 @@ public class RushManager {
                         break;
                     case FULFILLMENT_CENTER:
                         fullfillmentLocation = r.location;
+                        break;
+                    case DESIGN_SCHOOL:
+                        designLocation = r.location;
                         break;
                 }
             }
