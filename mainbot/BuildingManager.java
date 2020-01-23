@@ -32,6 +32,10 @@ public class BuildingManager {
             if (fulfillment == 0) return RobotType.FULFILLMENT_CENTER;
             if (design == 0) return RobotType.DESIGN_SCHOOL;
             //return null;
+        } else{
+            if (comm.upToDate() && fulfillment > 0 && comm.buildings[RobotType.DELIVERY_DRONE.ordinal()] == 0){
+                return RobotType.DELIVERY_DRONE;
+            }
         }
 
         if (10*fulfillment <= vaporators) {

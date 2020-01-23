@@ -160,6 +160,7 @@ public class Landscaper extends MyRobot {
             }
             if (target != null) return false;
             if (!comm.isRush() && buildingZone.finished() && buildingZone.isWall(rc.getLocation())) return false;
+            if (buildingZone.finished() && !buildingZone.isCritical(exploreLandscaper.closestEnemyBuilding)) return false;
             target = exploreLandscaper.closestEnemyBuilding;
             return true;
         } catch(Throwable t){

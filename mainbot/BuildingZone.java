@@ -48,7 +48,10 @@ public class BuildingZone {
     }
 
     void run(){
-        if (finished())  return;
+        if (finished()){
+            if (hq) checkWall();
+            return;
+        }
         while (row < map.length){
             if (Clock.getBytecodesLeft() <= 300) return;
             map[row] = new int[h];
@@ -208,6 +211,7 @@ public class BuildingZone {
 
     void checkWall(){
         try {
+            if (wallArrayCont <= 0) return;
             System.out.println("Checking wall "+ wallArrayCont);
             while (wallArrayCont > 0) {
                 if (Clock.getBytecodesLeft() <= 500) return;
@@ -225,7 +229,10 @@ public class BuildingZone {
 
 
     boolean finished(){
-        if (!hq) return wallCont < 0;
+        return wallCont < 0;
+    }
+
+    boolean finishedHQ(){
         return wallCont < 0 && wallArrayCont <= 0;
     }
 
@@ -288,6 +295,23 @@ public class BuildingZone {
 
     boolean canBuild(MapLocation loc){
         return (loc.x - HQloc.x + 64 )%2 == 1 && (loc.y - HQloc.y + 64)%2 == 1;
+    }
+
+    boolean isCritical(MapLocation loc){
+        switch(getZone(loc)){
+            case WALL:
+                return true;
+            case OUTER_WALL:
+                return false;
+            case BUILDING_AREA:
+                return true;
+            case NEXT_TO_WALL:
+                return true;
+            case HOLE:
+                return false;
+            default:
+                return false;
+        }
     }
 
     //TODO

@@ -67,7 +67,7 @@ public class HQ extends MyRobot {
         if (comm.wallMes != null) buildingZone.update(comm.wallMes);
         if (hqWall.finished()) comm.sendWall(hqWall.mes);
         buildingZone.run();
-        if (buildingZone.finished()){
+        if (buildingZone.finishedHQ()){
             comm.sendWallFinished();
         }
 
@@ -76,9 +76,10 @@ public class HQ extends MyRobot {
 
     boolean shouldBuildMiner(){
         if (!rc.isReady()) return false;
+        if (miners <= 3) return true;
         if (miners >= Constants.MAX_MINERS) return false;
         if (rush) return false;
-        if (comm.buildings[RobotType.FULFILLMENT_CENTER.ordinal()] == 0 && miners >= MINERS_BEFORE_FULFILLMENT) return false;
+        if ((comm.buildings[RobotType.FULFILLMENT_CENTER.ordinal()] == 0 || comm.buildings[RobotType.DELIVERY_DRONE.ordinal()] == 0) && miners >= MINERS_BEFORE_FULFILLMENT) return false;
         if (comm.wallFinished || comm.buildings[RobotType.LANDSCAPER.ordinal()] >= 2) return false;
         int soup = MIN_MAX_SOUP;
         if (maxSoup > soup) soup = maxSoup;
@@ -127,7 +128,6 @@ public class HQ extends MyRobot {
     }
 
     boolean shouldBuildBuilder(){
-        if (miners <= 3) return true;
         RobotType r = BuildingManager.getNextBuilding(comm);
         if (rush && r != RobotType.DESIGN_SCHOOL && r != RobotType.FULFILLMENT_CENTER) return false;
         if (r == null) return false;
@@ -161,7 +161,14 @@ public class HQ extends MyRobot {
                 case LANDSCAPER:
                 case NET_GUN:
                 case DESIGN_SCHOOL:
-                    return true;
+                    System.out.println("Found one!!");
+                    if (rc.getRoundNum() < Constants.MAX_TURN_RUSH){
+                        return true;
+                    }
+                    if (buildingZone.finished()) {
+                        System.out.println("Got here!! " + buildingZone.getZone(r.location));
+                        if (buildingZone.isCritical(r.location)) return true;
+                    }
                 default:
                     break;
             }

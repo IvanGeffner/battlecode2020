@@ -381,8 +381,8 @@ public class Comm {
     }
 
     boolean isRush(){
-        if (wallFinished) return false;
-        if (rc.getRoundNum() >= Constants.MAX_TURN_RUSH) return false;
+        //if (wallFinished) return false;
+        //if (rc.getRoundNum() >= Constants.MAX_TURN_RUSH) return false;
         return rush;
     }
 
