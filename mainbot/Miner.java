@@ -218,7 +218,19 @@ public class Miner extends MyRobot {
         if (!BuildingManager.haveSoupToSpawn(rc, type)) return;
         if (Constants.DEBUG == 1) System.out.println(type.name());
         if (rc.getTeamSoup() <= type.cost) return;
+        if (type == RobotType.DESIGN_SCHOOL || type == RobotType.FULFILLMENT_CENTER){
+            if (shouldNotBuild(type)) return;
+        }
         build(type);
+    }
+
+    boolean shouldNotBuild(RobotType type){
+        if (comm.buildings[type.ordinal()] >= 1) return false;
+        RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam());
+        for (RobotInfo r : robots){
+            if (r.getType() == type) return true;
+        }
+        return false;
     }
 
     RobotType buildType;

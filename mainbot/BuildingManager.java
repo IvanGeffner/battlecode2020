@@ -29,8 +29,8 @@ public class BuildingManager {
         int vaporators = comm.buildings[RobotType.VAPORATOR.ordinal()];
 
         if (comm.isRush()){
-            if (design == 0) return RobotType.DESIGN_SCHOOL;
             if (fulfillment == 0) return RobotType.FULFILLMENT_CENTER;
+            if (design == 0) return RobotType.DESIGN_SCHOOL;
             //return null;
         }
 
@@ -70,14 +70,16 @@ public class BuildingManager {
     static boolean shouldBuildDrone(Comm comm, RobotController rc){
         if (!comm.upToDate()) return false;
         RobotType r = getNextBuilding(comm);
-        int price = 0;
-        if (r != null) price += r.cost;
-        System.out.println("checking drone building! " + price + " " + rc.getTeamSoup());
-        if (price + RobotType.DELIVERY_DRONE.cost <= rc.getTeamSoup()){
-            //if (rc.getRoundNum() < ROUND_LANDSCAPERS_ECO) return true;
-            if (rc.getTeamSoup() > price +  RobotType.LANDSCAPER.cost + RobotType.DELIVERY_DRONE.cost) return true;
-            int landscapers = getLandscapers(comm), drones = getDrones(comm);
-            return drones <= landscapers;
+        if (!comm.isRush()) {
+            int price = 0;
+            if (r != null) price += r.cost;
+            System.out.println("checking drone building! " + price + " " + rc.getTeamSoup());
+            if (price + RobotType.DELIVERY_DRONE.cost <= rc.getTeamSoup()) {
+                //if (rc.getRoundNum() < ROUND_LANDSCAPERS_ECO) return true;
+                if (rc.getTeamSoup() > price + RobotType.LANDSCAPER.cost + RobotType.DELIVERY_DRONE.cost) return true;
+                int landscapers = getLandscapers(comm), drones = getDrones(comm);
+                return drones <= landscapers;
+            }
         }
         if (r != RobotType.VAPORATOR) return false;
         int vapor = comm.buildings[RobotType.VAPORATOR.ordinal()], drones = comm.buildings[RobotType.DELIVERY_DRONE.ordinal()];
@@ -99,12 +101,14 @@ public class BuildingManager {
         if (!comm.upToDate()) return false;
         //if (rc.getRoundNum() < ROUND_LANDSCAPERS_ECO) return false;
         RobotType r = getNextBuilding(comm);
-        int price = 0;
-        if (r != null) price += r.cost;
-        if (price + RobotType.LANDSCAPER.cost <= rc.getTeamSoup()){
-            if (rc.getTeamSoup() > price + RobotType.LANDSCAPER.cost + RobotType.DELIVERY_DRONE.cost) return true;
-            int landscapers = getLandscapers(comm), drones = getDrones(comm);
-            return drones > landscapers;
+        if (!comm.isRush()) {
+            int price = 0;
+            if (r != null) price += r.cost;
+            if (price + RobotType.LANDSCAPER.cost <= rc.getTeamSoup()) {
+                if (rc.getTeamSoup() > price + RobotType.LANDSCAPER.cost + RobotType.DELIVERY_DRONE.cost) return true;
+                int landscapers = getLandscapers(comm), drones = getDrones(comm);
+                return drones > landscapers;
+            }
         }
         if (r != RobotType.VAPORATOR) return false;
         int vapor = comm.buildings[RobotType.VAPORATOR.ordinal()], landscapers = comm.buildings[RobotType.LANDSCAPER.ordinal()];

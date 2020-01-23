@@ -103,59 +103,12 @@ public class Landscaper extends MyRobot {
 
     void checkUrgentMoves() {
         try {
-            /*
-            if (exploreLandscaper.urgentFix != null){
-                rc.setIndicatorDot(exploreLandscaper.urgentFix, 255, 255, 0);
-                System.out.println("URGENT "+ exploreLandscaper.urgentFixType);
-            }*/
             if (!rc.isReady()) return;
             target = null;
             buildingHurtMove();
             closeEnemyBuildingMove();
             urgentFixMove();
-            //if (!buildingZone.finished()) return;
-            //if (buildingZone.isWall(rc.getLocation())) return;
 
-            //CHECK BUILDING HURT
-            /*
-            if (exploreLandscaper.buildingHurt != null) {
-                int d = rc.getLocation().distanceSquaredTo(exploreLandscaper.buildingHurt);
-                if (!buildingZone.finished() || comm.isRush() || !buildingZone.isWall(rc.getLocation())) {
-                    if (d > 2) {
-                        if (!buildingZone.finished() || comm.isRush() || !buildingZone.isWall(rc.getLocation())) {
-                            target = exploreLandscaper.buildingHurt;
-                            return;
-                        }
-                    } else {
-                        target = null;
-                        if (rc.isReady()) {
-                            Direction dir = rc.getLocation().directionTo(exploreLandscaper.buildingHurt);
-                            if (rc.canDigDirt(dir)) {
-                                rc.digDirt(dir);
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-
-            //CHECK ENEMY BUILDING
-            if (exploreLandscaper.closestEnemyBuilding != null) {
-                if (!buildingZone.finished() || comm.isRush() || !buildingZone.isWall(rc.getLocation())) {
-                    int d = rc.getLocation().distanceSquaredTo(exploreLandscaper.closestEnemyBuilding);
-                    if (d > 2) target = exploreLandscaper.closestEnemyBuilding;
-                    else target = rc.getLocation();
-                    return;
-                }
-            }
-
-
-            if (exploreLandscaper.urgentFix != null) {
-                int d = rc.getLocation().distanceSquaredTo(exploreLandscaper.urgentFix);
-                if (d > 2) target = exploreLandscaper.urgentFix;
-                else target = rc.getLocation();
-                return;
-            }*/
             if (target != null) return;
             if (exploreLandscaper.closestWallToBuild == null) return;
             if (buildingZone.isWall(rc.getLocation())) return;

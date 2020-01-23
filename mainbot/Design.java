@@ -11,11 +11,13 @@ public class Design extends MyRobot {
     boolean needDrone;
     boolean enemyNetGunNearby;
     Direction[] dirs = Direction.values();
+    RushManager rushManager;
 
     Design(RobotController rc){
         this.rc = rc;
         comm = new Comm(rc);
         myLoc = rc.getLocation();
+        rushManager = new RushManager(rc, comm);
         buildingZone = new BuildingZone(rc);
     }
 
@@ -33,14 +35,15 @@ public class Design extends MyRobot {
     boolean shouldBuildLandscaper(){
         if (!comm.upToDate()) return false;
         if (!BuildingManager.haveSoupToSpawn(rc, RobotType.LANDSCAPER)) return false;
-        checkUnits();
+        if (rushManager.rushBuild() == RobotType.LANDSCAPER) return true;
+        /*checkUnits();
         if (comm.isRush() && comm.buildings[RobotType.LANDSCAPER.ordinal()] <= 2){
             if (enemyNetGunNearby && comm.buildings[RobotType.LANDSCAPER.ordinal()] == 0) return true;
             if (needDrone && comm.buildings[RobotType.FULFILLMENT_CENTER.ordinal()] > 0 && comm.buildings[RobotType.LANDSCAPER.ordinal()] > 0) return false;
             build(RobotType.LANDSCAPER, true);
             if (needDrone) return false;
             return true;
-        }
+        }*/
         return BuildingManager.shouldBuildLandscaper(comm, rc);
     }
 

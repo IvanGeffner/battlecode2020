@@ -9,21 +9,19 @@ MINERS:
 - (**) Avoid trying to reach unreachable Soups [HARD]
 
 PATHFINDING:
-- (*) There's some weird shit going on
 - (*) When fleeing, it is ok to move as long as it is above water level
 
 LANDSCAPERS:
 - (**) Dig instead of trying to turn around in some maps
-- (***) Prioritize better buildings
+- (**) Prioritize better buildings
 
 Drones:
-- (***) Remember targets and continue the same way for a while
+- (**) Remember targets and continue the same way for a while
 
 Comm:
 - (*****) Broadcast if HQ doesn't see a building and rebuild it
 
 Building Manager:
-- (*****) Fix everything
 
 -HQ:
 
@@ -32,5 +30,6 @@ URGENT TODO:
 - Landscapers do weird stuff in some maps
 - Better BFS from HQ*
 - Tirar vaques
+- Not all miners should try to reach HQ
 
 

@@ -9,11 +9,13 @@ public class Fullfillment extends MyRobot {
     MapLocation myLoc;
     boolean[] cantMove;
     Direction[] dirs = Direction.values();
+    RushManager rushManager;
 
     Fullfillment(RobotController rc){
         this.rc = rc;
         comm = new Comm(rc);
         myLoc = rc.getLocation();
+        rushManager = new RushManager(rc, comm);
     }
 
     void play(){
@@ -28,10 +30,15 @@ public class Fullfillment extends MyRobot {
 
     boolean shouldBuildDrone(){
         if (!BuildingManager.haveSoupToSpawn(rc, RobotType.DELIVERY_DRONE)) return false;
-        if (urgentBuild()){
-            if (Constants.DEBUG == 1) System.out.println("Urgent build!!");
+        if (rushManager.rushBuild() == RobotType.DELIVERY_DRONE){
+            System.out.println("rush build!");
             return true;
         }
+        if (!comm.isRush() && comm.upToDate() && comm.buildings[RobotType.DELIVERY_DRONE.ordinal()] <= 0) return true;
+        /*if (urgentBuild()){
+            if (Constants.DEBUG == 1) System.out.println("Urgent build!!");
+            return true;
+        }*/
         if (!comm.upToDate()) return false;
         return BuildingManager.shouldBuildDrone(comm, rc);
     }
@@ -53,14 +60,6 @@ public class Fullfillment extends MyRobot {
         } catch(Throwable t){
             t.printStackTrace();
         }
-    }
-
-    boolean visibleLandscaper(){
-        RobotInfo[] visibleRobots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
-        for (RobotInfo r : visibleRobots){
-            if (r.getType() == RobotType.LANDSCAPER) return true;
-        }
-        return false;
     }
 
     void updateCantSpawn(){
@@ -93,7 +92,7 @@ public class Fullfillment extends MyRobot {
         if (newLoc.distanceSquaredTo(loc) <= 13) cantMove[Direction.CENTER.ordinal()] = true;
     }
 
-    boolean urgentBuild(){
+    /*boolean urgentBuild(){
         if (comm.upToDate() && comm.buildings[RobotType.DELIVERY_DRONE.ordinal()] <= 0) return true;
         if (!comm.isRush()) return false;
         int match = 0;
@@ -121,5 +120,5 @@ public class Fullfillment extends MyRobot {
             }
         }
         return match > 0;
-    }
+    }*/
 }
