@@ -1,9 +1,9 @@
-package mainbot;
+package antidrones;
 
 public class Constants {
 
     static final int INF = 1000000000;
-    static final int DEBUG = 1;
+    static final int DEBUG = 2;
     static final int SOUP_PER_MINER = 300;
     static final int MAX_MINERS = 20;
     static final int DIST_TO_BUILD = 48;
@@ -29,4 +29,9 @@ public class Constants {
     static final int MAX_TURN_RUSH = 300;
     static final double REINVESTMENT_CONSTANT = 0.8;
     static final int MIN_TURN_PUT_LANDSCAPERS = 500;
+    static final int MIN_DIST_SAFE = 9;
+    static final int LANDSCAPERS_TO_ENEMY_HQ = 950;
+    static final int ATTACK_DISTANCE = 64;
+    static final int MIN_DIST_FLEE_ATTACKING = 13;
+
 }

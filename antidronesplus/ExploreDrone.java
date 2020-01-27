@@ -1,4 +1,4 @@
-package mainbot;
+package antidronesplus;
 
 import battlecode.common.*;
 
@@ -38,6 +38,9 @@ public class ExploreDrone {
     RobotInfo stuckAlly;
     RobotInfo closestLandscaperMyTeam;
     int minDistLandscaperMyTeam;
+
+    MapLocation closestEnemyDrone = null;
+    int distToEnemyDrone;
 
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
@@ -86,6 +89,7 @@ public class ExploreDrone {
             stuckAlly = null;
             closestLandscaperMyTeam = null;
             closestEnemyBuilding = null;
+            closestEnemyDrone = null;
             comm.dangerDrone.initVisibleDanger();
             int minDistStuckAlly = 0;
             RobotInfo[] robots = rc.senseNearbyRobots();
@@ -117,7 +121,7 @@ public class ExploreDrone {
                         } else{
                             int d = myLoc.distanceSquaredTo(r.location);
                             if (comm.wallFinished || rc.getRoundNum() >= Constants.MIN_TURN_PUT_LANDSCAPERS) {
-                                if (buildingZone.finished() && !buildingZone.isWall(r.location)) {
+                                if (buildingZone.finished() && !buildingZone.isWall(r.location) && r.cooldownTurns <= 2) {
                                     if (stuckAlly == null || d < minDistStuckAlly) {
                                         minDistStuckAlly = d;
                                         stuckAlly = r;
@@ -135,7 +139,7 @@ public class ExploreDrone {
                     case MINER:
                         if (r.team != rc.getTeam()){
                             if (closestMiner == null || myLoc.distanceSquaredTo(closestMiner.location) > myLoc.distanceSquaredTo(r.location)) closestMiner = r;
-                        } else if (comm.shouldBuildVaporators()) {
+                        } else if (comm.shouldBuildVaporators() && r.cooldownTurns <= 2) {
                             int d = myLoc.distanceSquaredTo(r.location);
                             if (buildingZone.finished() && !buildingZone.isWall(r.location)){
                                 if(stuckAlly == null || d < minDistStuckAlly){
@@ -149,6 +153,15 @@ public class ExploreDrone {
                         if (r.team != rc.getTeam()){
                             comm.sendGun(r.location);
                             comm.dangerDrone.addVisibleDanger(r.location, (int)r.cooldownTurns);
+                        }
+                        break;
+                    case DELIVERY_DRONE:
+                        if (r.team != rc.getTeam()) {
+                            int d = myLoc.distanceSquaredTo(r.location);
+                            if (closestEnemyDrone == null || d < distToEnemyDrone){
+                                closestEnemyDrone = r.location;
+                                distToEnemyDrone = d;
+                            }
                         }
                         break;
 

@@ -1,51 +1,52 @@
-package mainbot;
+package antidrones;
 
 import battlecode.common.*;
 
-public class ExploreDrone {
+public class ExploreLandscaper {
 
     final int EXPLORE_BIT = 1;
     int[][] map;
     RobotController rc;
-    MapLocation HQloc;
-    Direction[] dirs = Direction.values();
-    int currentIndex = 0;
     MapLocation myLoc;
     MapLocation exploreTarget = null;
     int H, W;
     Direction[][] dirPath;
     MapLocation closestWater = null;
-    int distToWater;
-
-    MapLocation closestEnemyBuilding = null;
-    int distToEnemyBuilding;
 
     MapLocation enemyHQ;
     Team myTeam;
+    boolean[] cantDig;
 
     final int MAX_EXPLORE_TIME = 1500;
 
     boolean seenLandscaper = false, seenEnemy = false;
-    boolean emergency;
-
-    RobotInfo closestMiner, closestLandscaper;
+    boolean dronesFound = false;
     Comm comm;
+
+    MapLocation closestEnemyBuilding, closestNetGun;
+    Danger danger;
+    int distToEnemyBuilding;
+
+    MapLocation closestWallToBuild;
+    int wallType;
+    int minDistToClosesWallToBuild;
 
     BuildingZone buildingZone;
 
-    MapLocation closestFinishedWall = null;
+    MapLocation buildingHurt, urgentFix;
+    int distBuildingHurt, urgentFixType;
 
-    RobotInfo stuckAlly;
-    RobotInfo closestLandscaperMyTeam;
-    int minDistLandscaperMyTeam;
+    int prevLocx = -1, prevLocy = -1;
+    boolean fillWater;
 
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
     //int[] Y = new int[]{0,0,-1,1,0,-1,1,-1,1,0,-2,2,0,-1,1,-2,2,-2,2,-1,1,-2,2,-2,2,0,-3,3,0,-1,1,-3,3,-3,3,-1,1,-2,2,-3,3,-3,3,-2,2,0,-4,4,0,-1,1,-4,4,-4,4,-1,1,-3,3,-3,3,-2,2,-4,4,-4,4,-2,2};
 
-    ExploreDrone(RobotController rc, Comm comm, BuildingZone buildingZone) {
+    ExploreLandscaper(RobotController rc, Comm comm, Danger danger, BuildingZone buildingZone) {
         this.rc = rc;
         this.comm = comm;
+        this.danger = danger;
         this.buildingZone = buildingZone;
         myTeam = rc.getTeam();
         H = rc.getMapHeight();
@@ -57,11 +58,13 @@ public class ExploreDrone {
 
 
     void update() {
-        boolean shouldCheckCells;
-        MapLocation nextLoc = rc.getLocation();
-        shouldCheckCells = myLoc == null || (myLoc.distanceSquaredTo(nextLoc) != 0);
-        myLoc = nextLoc;
-        checkWater();
+        myLoc = rc.getLocation();
+        boolean shouldCheckCells = true;
+        prevLocx = myLoc.x;
+        prevLocy = myLoc.y;
+        //checkWater();
+        checkClosestBuilding();
+        checkClosestWallToBuild();
         checkUnits();
         if (Constants.DEBUG == 1) System.out.println("Before checking cells: " + Clock.getBytecodeNum());
         if (shouldCheckCells) checkCells();
@@ -73,266 +76,228 @@ public class ExploreDrone {
             if (closestWater != null && rc.canSenseLocation(closestWater)) {
                 if (!rc.senseFlooding(closestWater)) closestWater = null;
             }
-            if (closestWater != null) distToWater = myLoc.distanceSquaredTo(closestWater);
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    void checkClosestBuilding(){
+        try{
+            if (closestEnemyBuilding != null && rc.canSenseLocation(closestEnemyBuilding)) {
+                RobotInfo r = rc.senseRobotAtLocation(closestEnemyBuilding);
+                if (r == null || r.getTeam() != rc.getTeam().opponent() || !r.getType().isBuilding()){
+                    closestEnemyBuilding = null;
+                    distToEnemyBuilding = 0;
+                }
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    void checkClosestWallToBuild(){
+        try{
+            if (closestWallToBuild == null) return;
+            if (rc.canSenseLocation(closestWallToBuild)) {
+                if (rc.senseElevation(closestWallToBuild) >= Constants.WALL_HEIGHT){
+                    closestWallToBuild = null;
+                    return;
+                }
+                if (rc.senseElevation(closestWallToBuild) < Constants.MIN_DEPTH){
+                    closestWallToBuild = null;
+                    return;
+                }
+            }
+            int d = myLoc.distanceSquaredTo(closestWallToBuild);
+            if (d < minDistToClosesWallToBuild) minDistToClosesWallToBuild = d;
         } catch (Throwable t){
             t.printStackTrace();
         }
     }
 
     void checkUnits() {
+            danger.init(myLoc);
+            dronesFound = false;
+            cantDig = new boolean[9];
+            buildingHurt = null;
         try {
-            closestMiner = null;
-            closestLandscaper = null;
-            stuckAlly = null;
-            closestLandscaperMyTeam = null;
-            closestEnemyBuilding = null;
-            comm.dangerDrone.initVisibleDanger();
-            int minDistStuckAlly = 0;
+            if (closestNetGun != null && rc.canSenseLocation(closestNetGun)) {
+                RobotInfo r = rc.senseRobotAtLocation(closestNetGun);
+                if (r == null || r.team != rc.getTeam() || r.type != RobotType.NET_GUN) closestNetGun = null;
+            }
             RobotInfo[] robots = rc.senseNearbyRobots();
             for (RobotInfo r : robots) {
                 if (!seenEnemy && r.team == rc.getTeam().opponent()) seenEnemy = true;
-                if (r.type.isBuilding() && r.getTeam() != rc.getTeam()){
-                    int d = myLoc.distanceSquaredTo(r.location);
-                    if (closestEnemyBuilding == null || d < distToEnemyBuilding){
-                        distToEnemyBuilding = d;
-                        closestEnemyBuilding = r.location;
+                if (r.type.isBuilding()){
+                    if (r.team == rc.getTeam()){
+                        if (r.getDirtCarrying() > 0){
+                            int d = myLoc.distanceSquaredTo(r.location);
+                            if (buildingHurt == null || d < distBuildingHurt){
+                                buildingHurt = r.location;
+                                distBuildingHurt = d;
+                            }
+                        }
+                    } else{
+                        int t = myLoc.distanceSquaredTo(r.location);
+                        if (closestEnemyBuilding == null || t < distToEnemyBuilding){
+                            closestEnemyBuilding = r.location;
+                            distToEnemyBuilding = t;
+                        }
+                        if (t <= 2){
+                            Direction dir = myLoc.directionTo(r.location);
+                            cantDig[dir.ordinal()] = true;
+                        }
                     }
                 }
                 switch (r.type) {
                     case HQ:
                         if (r.team != rc.getTeam()){
                             enemyHQ = r.location;
-                            comm.dangerDrone.addVisibleDanger(r.location, (int)r.cooldownTurns);
-                        }
-                        else{
-                            HQloc = r.location;
+                        } else{
+                            int d = myLoc.distanceSquaredTo(r.location);
+                            if (closestNetGun == null || d < myLoc.distanceSquaredTo(closestNetGun)){
+                                closestNetGun = r.location;
+                            }
+                            danger.addSafe(r.location);
                         }
                         break;
                     case REFINERY:
+                    case FULFILLMENT_CENTER:
+                    case VAPORATOR:
+                    case DESIGN_SCHOOL:
                         break;
                     case LANDSCAPER:
                         if (r.team != rc.getTeam()){
                             seenLandscaper = true;
-                            if (closestLandscaper == null || myLoc.distanceSquaredTo(closestLandscaper.location) > myLoc.distanceSquaredTo(r.location)) closestLandscaper = r;
-                        } else{
-                            int d = myLoc.distanceSquaredTo(r.location);
-                            if (comm.wallFinished || rc.getRoundNum() >= Constants.MIN_TURN_PUT_LANDSCAPERS) {
-                                if (buildingZone.finished() && !buildingZone.isWall(r.location)) {
-                                    if (stuckAlly == null || d < minDistStuckAlly) {
-                                        minDistStuckAlly = d;
-                                        stuckAlly = r;
-                                    }
-                                }
-                            }
-                            if (closestLandscaperMyTeam == null || d < minDistLandscaperMyTeam){
-                                if (!closeToBuilding(r.location)) {
-                                    minDistLandscaperMyTeam = d;
-                                    closestLandscaperMyTeam = r;
-                                }
-                            }
-                        }
-                        break;
-                    case MINER:
-                        if (r.team != rc.getTeam()){
-                            if (closestMiner == null || myLoc.distanceSquaredTo(closestMiner.location) > myLoc.distanceSquaredTo(r.location)) closestMiner = r;
-                        } else if (comm.shouldBuildVaporators()) {
-                            int d = myLoc.distanceSquaredTo(r.location);
-                            if (buildingZone.finished() && !buildingZone.isWall(r.location)){
-                                if(stuckAlly == null || d < minDistStuckAlly){
-                                    minDistStuckAlly = d;
-                                    stuckAlly = r;
-                                }
-                            }
                         }
                         break;
                     case NET_GUN:
                         if (r.team != rc.getTeam()){
-                            comm.sendGun(r.location);
-                            comm.dangerDrone.addVisibleDanger(r.location, (int)r.cooldownTurns);
+                        } else{
+                            int d = myLoc.distanceSquaredTo(r.location);
+                            if (closestNetGun == null || d < myLoc.distanceSquaredTo(closestNetGun)){
+                                closestNetGun = r.location;
+                            }
+                            danger.addSafe(r.location);
                         }
                         break;
-
+                    case DELIVERY_DRONE:
+                        if (r.team != rc.getTeam()){
+                            dronesFound = true;
+                            danger.addDanger(r.location);
+                        }
+                        break;
                 }
             }
         } catch (Throwable t) {
             t.printStackTrace();
         }
-    }
-
-    boolean closeToBuilding(MapLocation loc){
-        try {
-            MapLocation newLoc = loc.add(Direction.NORTH);
-            if (rc.canSenseLocation(newLoc)) {
-                RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                if (r != null && r.getTeam() != rc.getTeam() && r.getType().isBuilding()){
-                    return true;
-                }
-            }
-            newLoc = loc.add(Direction.NORTHEAST);
-            if (rc.canSenseLocation(newLoc)) {
-                RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                if (r != null && r.getTeam() != rc.getTeam() && r.getType().isBuilding()){
-                    return true;
-                }
-            }
-            newLoc = loc.add(Direction.EAST);
-            if (rc.canSenseLocation(newLoc)) {
-                RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                if (r != null && r.getTeam() != rc.getTeam() && r.getType().isBuilding()){
-                    return true;
-                }
-            }
-            newLoc = loc.add(Direction.SOUTHEAST);
-            if (rc.canSenseLocation(newLoc)) {
-                RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                if (r != null && r.getTeam() != rc.getTeam() && r.getType().isBuilding()){
-                    return true;
-                }
-            }
-            newLoc = loc.add(Direction.SOUTH);
-            if (rc.canSenseLocation(newLoc)) {
-                RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                if (r != null && r.getTeam() != rc.getTeam() && r.getType().isBuilding()){
-                    return true;
-                }
-            }
-            newLoc = loc.add(Direction.SOUTHWEST);
-            if (rc.canSenseLocation(newLoc)) {
-                RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                if (r != null && r.getTeam() != rc.getTeam() && r.getType().isBuilding()){
-                    return true;
-                }
-            }
-            newLoc = loc.add(Direction.WEST);
-            if (rc.canSenseLocation(newLoc)) {
-                RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                if (r != null && r.getTeam() != rc.getTeam() && r.getType().isBuilding()){
-                    return true;
-                }
-            }
-            newLoc = loc.add(Direction.NORTHWEST);
-            if (rc.canSenseLocation(newLoc)) {
-                RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                if (r != null && r.getTeam() != rc.getTeam() && r.getType().isBuilding()){
-                    return true;
-                }
-            }
-        } catch (Throwable t){
-            t.printStackTrace();
-        }
-        return false;
     }
 
     void checkCells() {
-        if (buildingZone.finished()){
-            checkCellsPlus();
-            return;
-        }
-        emergency = true;
-        closestFinishedWall = null;
         int sight = rc.getCurrentSensorRadiusSquared();
+        if (!buildingZone.finished()) return;
         MapLocation newLoc = rc.getLocation();
         Direction[] dirArray = dirPath[sight];
+        urgentFix = null;
+        //closestWallToBuild = null;
+        //int bestDist = 0;
         int i = dirArray.length;
         try {
             while (--i >= 0) {
                 newLoc = newLoc.add(dirArray[i]);
                 if (!rc.canSenseLocation(newLoc)) continue;
-                int prevNumber = map[newLoc.x][newLoc.y] | EXPLORE_BIT;
-                if (rc.senseFlooding(newLoc)){
-                    int d = myLoc.distanceSquaredTo(newLoc);
-                    if (closestWater == null || d < distToWater){
-                        closestWater = newLoc;
-                        distToWater = d;
-                    }
-                }
+                /*int prevNumber = map[newLoc.x][newLoc.y] | EXPLORE_BIT;
                 map[newLoc.x][newLoc.y] = prevNumber;
-                if (comm.dangerDrone.map[newLoc.x][newLoc.y] == 1){
+                if (comm.map[newLoc.x][newLoc.y] == 1){
                     RobotInfo r = rc.senseRobotAtLocation(newLoc);
                     if (r == null || (r.type != RobotType.NET_GUN && r.type != RobotType.HQ) || r.team != rc.getTeam().opponent()){
                         comm.sendGunDestroyed(newLoc);
                     }
-                }
-            }
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
-    }
-
-    void checkCellsPlus() {
-        emergency = false;
-        int sight = rc.getCurrentSensorRadiusSquared();
-        MapLocation newLoc = rc.getLocation();
-        Direction[] dirArray = dirPath[sight];
-        closestFinishedWall = null;
-        int bestDist = 0;
-        int i = dirArray.length;
-        try {
-            while (--i >= 0) {
-                newLoc = newLoc.add(dirArray[i]);
-                if (!rc.canSenseLocation(newLoc)) continue;
-                int prevNumber = map[newLoc.x][newLoc.y] | EXPLORE_BIT;
-                map[newLoc.x][newLoc.y] = prevNumber;
-                if (comm.dangerDrone.map[newLoc.x][newLoc.y] == 1){
-                    RobotInfo r = rc.senseRobotAtLocation(newLoc);
-                    if (r == null || (r.type != RobotType.NET_GUN && r.type != RobotType.HQ) || r.team != rc.getTeam().opponent()){
-                        comm.sendGunDestroyed(newLoc);
-                    }
-                }
-                if (rc.senseFlooding(newLoc)){
-                    switch(buildingZone.getZone(newLoc)){
-                        case BuildingZone.BUILDING_AREA:
-                        case BuildingZone.NEXT_TO_WALL:
-                        case BuildingZone.WALL:
-                            emergency = true;
-                            break;
-                    }
-                    int d = myLoc.distanceSquaredTo(newLoc);
-                    if (closestWater == null || d < distToWater){
-                        closestWater = newLoc;
-                        distToWater = d;
-                    }
-                }
+                }*/
                 //if (buildingZone.isWall(newLoc)) rc.setIndicatorDot(newLoc, 0, 0, 255);
                 //else rc.setIndicatorDot(newLoc, 0, 255, 0);
-                if (buildingZone.isWall(newLoc) && rc.senseElevation(newLoc) == Constants.WALL_HEIGHT){
-                    int d = newLoc.distanceSquaredTo(myLoc);
-                    if (closestFinishedWall == null || d < bestDist){
-                        closestFinishedWall = newLoc;
-                        bestDist = d;
-                        //if (Constants.DEBUG == 1) rc.setIndicatorLine(rc.getLocation(), newLoc, 0, 0, 255);
-                    }
+                switch(buildingZone.getZone(newLoc)){
+                    case BuildingZone.WALL:
+                        int elevation = rc.senseElevation(newLoc);
+                        if (elevation < Constants.WALL_HEIGHT){
+                            int d = newLoc.distanceSquaredTo(myLoc);
+                            if (rc.senseFlooding(newLoc) && urgentFix == null){
+                                urgentFix = newLoc;
+                                urgentFixType = BuildingZone.WALL;
+                            }
+                            if (closestWallToBuild == null || wallType == BuildingZone.OUTER_WALL || d < minDistToClosesWallToBuild){
+                                closestWallToBuild = newLoc;
+                                minDistToClosesWallToBuild = d;
+                                wallType = BuildingZone.WALL;
+                                //rc.setIndicatorDot(newLoc, 255, 0, 0);
+                            }
+                            else if (d == minDistToClosesWallToBuild && closestWallToBuild.distanceSquaredTo(buildingZone.HQloc) > newLoc.distanceSquaredTo(buildingZone.HQloc)){
+                                closestWallToBuild = newLoc;
+                                minDistToClosesWallToBuild = d;
+                                wallType = BuildingZone.WALL;
+                            }
+                        }
+                        break;
+                    case BuildingZone.OUTER_WALL:
+                        elevation = rc.senseElevation(newLoc);
+                        if (elevation < Constants.WALL_HEIGHT && elevation > Constants.MIN_DEPTH){
+                            int d = newLoc.distanceSquaredTo(myLoc);
+                            if (closestWallToBuild == null) {
+                                closestWallToBuild = newLoc;
+                                minDistToClosesWallToBuild = d;
+                                wallType = BuildingZone.OUTER_WALL;
+                            } else if (wallType != BuildingZone.WALL){
+                                if (d < minDistToClosesWallToBuild || (d == minDistToClosesWallToBuild && closestWallToBuild.distanceSquaredTo(buildingZone.HQloc) > newLoc.distanceSquaredTo(buildingZone.HQloc))){
+                                    closestWallToBuild = newLoc;
+                                    minDistToClosesWallToBuild = d;
+                                    wallType = BuildingZone.OUTER_WALL;
+                                }
+                            }
+                        }
+                        break;
+                    case BuildingZone.NEXT_TO_WALL:
+                        if (rc.senseFlooding(newLoc)){
+                            if (urgentFix == null || urgentFixType > BuildingZone.NEXT_TO_WALL){
+                                urgentFix = newLoc;
+                                urgentFixType = BuildingZone.NEXT_TO_WALL;
+                            }
+                        }
+                        break;
+                    case BuildingZone.BUILDING_AREA:
+                        if (rc.senseFlooding(newLoc)){
+                            if (urgentFix == null || urgentFixType > BuildingZone.BUILDING_AREA){
+                                urgentFix = newLoc;
+                                urgentFixType = BuildingZone.BUILDING_AREA;
+                            }
+                        }
+                    default:
+                        break;
                 }
+
+                /*if (buildingZone.isWall(newLoc)){
+                    int elevation = rc.senseElevation(newLoc);
+                    if (elevation >= Constants.MIN_DEPTH && elevation < Constants.WALL_HEIGHT) {
+                        int d = newLoc.distanceSquaredTo(myLoc);
+                        if (closestWallToBuild == null || d <= minDistToClosesWallToBuild) {
+                            if (closestWallToBuild == null || d < minDistToClosesWallToBuild || buildingZone.HQloc.distanceSquaredTo(newLoc) < buildingZone.HQloc.distanceSquaredTo(closestWallToBuild)) {
+                                RobotInfo r = rc.senseRobotAtLocation(newLoc);
+                                if (r == null || r.team != rc.getTeam() || !r.type.isBuilding()) {
+                                    closestWallToBuild = newLoc;
+                                    minDistToClosesWallToBuild = d;
+                                }
+                            }
+                            //if (Constants.DEBUG == 1) rc.setIndicatorLine(rc.getLocation(), newLoc, 0, 0, 255);
+                        }
+                    }
+                }*/
             }
         } catch (Throwable t) {
             t.printStackTrace();
         }
     }
 
-    /*MapLocation getBestTarget() {
-        if (closestSoup != null) return closestSoup;
-        int bestDist = Constants.INF;
-        MapLocation ans = null;
-        int aux = currentIndex;
-        boolean found = false;
-        for (int i = 1; i < SOUPS_CHECKED; ++i) {
-            int index = (aux + MAX_SOUP_ARRAY - i) % MAX_SOUP_ARRAY;
-            MapLocation soupLoc = soups[index];
-            if (soupLoc == null) {
-                if (!found) currentIndex = index;
-                continue;
-            }
-            found = true;
-            int dist = myLoc.distanceSquaredTo(soupLoc);
-            if (dist < bestDist) {
-                bestDist = dist;
-                ans = soupLoc;
-            }
-        }
-        return ans;
-    }*/
-
-    MapLocation exploreTarget() {
+    /*MapLocation exploreTarget() {
         if (exploreTarget != null) {
             if (map[exploreTarget.x][exploreTarget.y] > 0) exploreTarget = null;
         }
@@ -354,7 +319,7 @@ public class ExploreDrone {
             }
         }
         return exploreTarget;
-    }
+    }*/
 
     void checkComm(){
         //if (!comm.upToDate()) return; already checked there lol
