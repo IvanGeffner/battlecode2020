@@ -36,13 +36,7 @@ public class Landscaper extends MyRobot {
     void play(){
 
         //UPDATE STUFF
-        if (comm.singleMessage()) comm.readMessages();
-        waterManager.update();
-        exploreLandscaper.update();
-        exploreLandscaper.checkComm();
-        bugPath.update();
-        if (exploreLandscaper.dronesFound) bugPath.updateDrones(danger);
-        if (Constants.DEBUG == 1) System.out.println("Bytecode post bugPath update " + Clock.getBytecodeNum());
+        updateBeginningTurn();
 
         //TRY FLEEING FROM WATER
 
@@ -66,17 +60,7 @@ public class Landscaper extends MyRobot {
         //TRY DIGGING AND DEPOSITING (GENERAL)
 
         tryDigAndDeposit();
-        /*
-        if (Constants.DEBUG == 1){
-            if (bestSpotDig != null){
-                System.out.println("Best Spot Dig " + bestSpotDig.scoreDig());
-                rc.setIndicatorDot(bestSpotDig.loc, 255, 0, 0);
-            }
-            if (bestSpotDeposit != null){
-                System.out.println("Best Spot deposit " + bestSpotDeposit.scoreDeposit());
-                rc.setIndicatorDot(bestSpotDeposit.loc, 0, 255, 0);
-            }
-        }*/
+
 
         //IF NOT FLEE GO TO TARGET
         if (!flee && target == null){
@@ -89,6 +73,29 @@ public class Landscaper extends MyRobot {
         if (comm.wallMes != null) buildingZone.update(comm.wallMes);
         buildingZone.run();
         comm.readMessages();
+    }
+
+    void debugDigDeposit(){
+        if (Constants.DEBUG == 1){
+            if (bestSpotDig != null){
+                System.out.println("Best Spot Dig " + bestSpotDig.scoreDig());
+                rc.setIndicatorDot(bestSpotDig.loc, 255, 0, 0);
+            }
+            if (bestSpotDeposit != null){
+                System.out.println("Best Spot deposit " + bestSpotDeposit.scoreDeposit());
+                rc.setIndicatorDot(bestSpotDeposit.loc, 0, 255, 0);
+            }
+        }
+    }
+
+    void updateBeginningTurn(){
+        if (comm.singleMessage()) comm.readMessages();
+        waterManager.update();
+        exploreLandscaper.update();
+        exploreLandscaper.checkComm();
+        bugPath.update();
+        if (exploreLandscaper.dronesFound) bugPath.updateDrones(danger);
+        if (Constants.DEBUG == 1) System.out.println("Bytecode post bugPath update " + Clock.getBytecodeNum());
     }
 
     MapLocation getTarget(){

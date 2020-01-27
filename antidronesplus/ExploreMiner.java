@@ -24,6 +24,7 @@ public class ExploreMiner {
     MapLocation[] soups = new MapLocation[MAX_SOUP_ARRAY];
     int currentIndex = 0;
     MapLocation myLoc;
+    int myElev;
     MapLocation exploreTarget = null;
     int H, W;
     Direction[][] dirPath;
@@ -98,6 +99,11 @@ public class ExploreMiner {
 
     void updateBuilder(){
         myLoc = rc.getLocation();
+        try {
+            myElev = rc.senseElevation(myLoc);
+        } catch(Throwable t){
+            t.printStackTrace();
+        }
         checkUnits();
     }
 
@@ -116,6 +122,7 @@ public class ExploreMiner {
             int bestDist = myLoc.distanceSquaredTo(closestRefineryLoc);
             //closestDrone = null;
             minDistNetGun = new int[9];
+            dronesFound = false;
             for (RobotInfo r : robots) {
                 if (!seenEnemy && r.team == rc.getTeam().opponent()) seenEnemy = true;
                 switch (r.type) {
@@ -256,24 +263,46 @@ public class ExploreMiner {
 
     boolean isAccessible(MapLocation loc){
         try {
-            MapLocation newLoc = loc.add(Direction.CENTER);
-            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
-            newLoc = loc.add(Direction.NORTH);
-            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            MapLocation newLoc = loc.add(Direction.NORTH);
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)){
+                int e = rc.senseElevation(newLoc);
+                if ((e - myElev)*(e-myElev) <= 9) return true;
+            }
             newLoc = loc.add(Direction.NORTHWEST);
-            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)){
+                int e = rc.senseElevation(newLoc);
+                if ((e - myElev)*(e-myElev) <= 9) return true;
+            }
             newLoc = loc.add(Direction.WEST);
-            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)){
+                int e = rc.senseElevation(newLoc);
+                if ((e - myElev)*(e-myElev) <= 9) return true;
+            }
             newLoc = loc.add(Direction.SOUTHWEST);
-            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)){
+                int e = rc.senseElevation(newLoc);
+                if ((e - myElev)*(e-myElev) <= 9) return true;
+            }
             newLoc = loc.add(Direction.SOUTH);
-            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)){
+                int e = rc.senseElevation(newLoc);
+                if ((e - myElev)*(e-myElev) <= 9) return true;
+            }
             newLoc = loc.add(Direction.SOUTHEAST);
-            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)){
+                int e = rc.senseElevation(newLoc);
+                if ((e - myElev)*(e-myElev) <= 9) return true;
+            }
             newLoc = loc.add(Direction.EAST);
-            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)){
+                int e = rc.senseElevation(newLoc);
+                if ((e - myElev)*(e-myElev) <= 9) return true;
+            }
             newLoc = loc.add(Direction.NORTHEAST);
-            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)) return true;
+            if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)){
+                int e = rc.senseElevation(newLoc);
+                if ((e - myElev)*(e-myElev) <= 9) return true;
+            }
         } catch (Throwable t){
             t.printStackTrace();
         }
