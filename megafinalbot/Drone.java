@@ -34,7 +34,10 @@ public class Drone extends MyRobot {
 
         //UPDATE STUFF
         if (comm.singleMessage()) comm.readMessages();
-        if (comm.turnFirstDrone+1 == roundCreated) firstDrone = true;
+        if (comm.turnFirstDrone+1 == roundCreated){
+            firstDrone = true;
+            exploreDrone.setFirstDrone();
+        }
         //if (firstDrone) System.out.println("First drone! :D");
         //else System.out.println(roundCreated + " " + comm.turnFirstDrone);
         round = rc.getRoundNum();

@@ -50,6 +50,7 @@ public class ExploreDrone {
     int distToEnemyDrone;
 
     boolean shouldMove;
+    boolean firstDrone = false;
 
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
@@ -65,6 +66,10 @@ public class ExploreDrone {
         map = new int[W][H];
         dirPath = new Direction[36][0];
         fillDirPath();
+    }
+
+    void setFirstDrone(){
+        firstDrone = true;
     }
 
 
@@ -188,6 +193,25 @@ public class ExploreDrone {
                             if (closestEnemyDrone == null || d < distToEnemyDrone){
                                 closestEnemyDrone = r.location;
                                 distToEnemyDrone = d;
+                            }
+                            if (firstDrone && r.isCurrentlyHoldingUnit()){
+                                int id = r.heldUnitID;
+                                if (rc.canSenseRobot(id)){
+                                    RobotInfo heldRobot = rc.senseRobot(id);
+                                    if (heldRobot.team == rc.getTeam().opponent()){
+                                        if (heldRobot.type == RobotType.MINER){
+                                            if (rc.getRoundNum() > Constants.MIN_TURN_CLUTCH || comm.dangerDrone.dangerMap[r.location.x][r.location.y] <= 0) {
+                                                if (closestMiner == null || myLoc.distanceSquaredTo(closestMiner.location) > myLoc.distanceSquaredTo(r.location))
+                                                    closestMiner = r;
+                                            }
+                                        } else if (heldRobot.type == RobotType.LANDSCAPER){
+                                            if (rc.getRoundNum() > Constants.MIN_TURN_CLUTCH || comm.dangerDrone.dangerMap[r.location.x][r.location.y] <= 0) {
+                                                if (closestMiner == null || myLoc.distanceSquaredTo(closestMiner.location) > myLoc.distanceSquaredTo(r.location))
+                                                    closestMiner = r;
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                         break;
