@@ -1,4 +1,4 @@
-package megafinalbot;
+package megafinalbotplus;
 
 import battlecode.common.Direction;
 import battlecode.common.MapLocation;
@@ -151,6 +151,7 @@ public class DroneBugPath {
         canMoveArray = new boolean[9];
         try {
             int roundCrunch = Constants.MIN_TURN_CLUTCH;
+            if (lateDrone) roundCrunch = Constants.MIN_TURN_CLUTCH_2;
             if (rc.isCurrentlyHoldingUnit()) roundCrunch += Constants.SAFETY_TURNS_CRUNCH;
             boolean shouldCrunch = rc.getRoundNum() >= roundCrunch;
             for (Direction dir : dirs) {

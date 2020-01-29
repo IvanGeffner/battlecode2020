@@ -1,4 +1,4 @@
-package megafinalbot;
+package megafinalbotplus;
 
 import battlecode.common.*;
 
@@ -13,6 +13,9 @@ public class Drone extends MyRobot {
 
     RobotInfo robotHeld;
 
+    int turnsWithHeldLandscaper = 0;
+    boolean attacker = false;
+
     int round;
 
     int roundCreated;
@@ -24,6 +27,7 @@ public class Drone extends MyRobot {
         roundCreated = rc.getRoundNum();
         lateDrone = roundCreated > Constants.BUILDING_WALL_TURN;
         comm = new Comm(rc);
+        if (lateDrone) comm.setLateDrone();
         //myLoc = rc.getLocation();
         buildingZone = new BuildingZone(rc);
         exploreDrone = new ExploreDrone(rc, comm, buildingZone);
@@ -43,6 +47,8 @@ public class Drone extends MyRobot {
         round = rc.getRoundNum();
         exploreDrone.update();
         exploreDrone.checkComm();
+        if (rc.isCurrentlyHoldingUnit()) ++turnsWithHeldLandscaper;
+        else turnsWithHeldLandscaper = 0;
 
 
         //MapLocation w = getClosestWater();
@@ -79,6 +85,10 @@ public class Drone extends MyRobot {
             else{
                 if (lateDrone && robotHeld.getType() == RobotType.LANDSCAPER){
                     if (exploreDrone.bestLateWall != null) return exploreDrone.bestLateWall;
+                    if (attacker || turnsWithHeldLandscaper >= 30){
+                        attacker = true;
+                        return comm.enemyHQLoc;
+                    }
                     if (comm.HQLoc != null) return comm.HQLoc;
                     return exploreDrone.exploreTarget();
                 }

@@ -1,4 +1,4 @@
-package megafinalbot;
+package megafinalbotplus;
 
 import battlecode.common.*;
 
