@@ -1,10 +1,11 @@
-package antidronesplus;
+package megafinalbot;
 
 import battlecode.common.*;
 
 public class ExploreDrone {
 
     final int EXPLORE_BIT = 1;
+    final int LANDSCAPER_BIT = 2;
     int[][] map;
     RobotController rc;
     MapLocation HQloc;
@@ -29,6 +30,7 @@ public class ExploreDrone {
     boolean emergency;
 
     RobotInfo closestMiner, closestLandscaper;
+    RobotInfo closestMinerOnDrone;
     Comm comm;
 
     BuildingZone buildingZone;
@@ -41,8 +43,13 @@ public class ExploreDrone {
     RobotInfo closestLandscaperMyTeam;
     int minDistLandscaperMyTeam;
 
+    MapLocation bestLateWall = null;
+    int distBestLateWall = 0;
+
     MapLocation closestEnemyDrone = null;
     int distToEnemyDrone;
+
+    boolean shouldMove;
 
 
     //int[] X = new int[]{0,-1,0,0,1,-1,-1,1,1,-2,0,0,2,-2,-2,-1,-1,1,1,2,2,-2,-2,2,2,-3,0,0,3,-3,-3,-1,-1,1,1,3,3,-3,-3,-2,-2,2,2,3,3,-4,0,0,4,-4,-4,-1,-1,1,1,4,4,-3,-3,3,3,-4,-4,-2,-2,2,2,4,4};
@@ -92,6 +99,7 @@ public class ExploreDrone {
             closestLandscaperMyTeam = null;
             closestEnemyBuilding = null;
             closestEnemyDrone = null;
+            closestMinerOnDrone = null;
             comm.dangerDrone.initVisibleDanger();
             int minDistStuckAlly = 0;
             RobotInfo[] robots = rc.senseNearbyRobots();
@@ -119,8 +127,18 @@ public class ExploreDrone {
                     case LANDSCAPER:
                         if (r.team != rc.getTeam()){
                             seenLandscaper = true;
-                            if (closestLandscaper == null || myLoc.distanceSquaredTo(closestLandscaper.location) > myLoc.distanceSquaredTo(r.location)) closestLandscaper = r;
+                            if (rc.getRoundNum() > Constants.MIN_TURN_CLUTCH || comm.dangerDrone.dangerMap[r.location.x][r.location.y] <= 0) {
+                                if (closestLandscaper == null || myLoc.distanceSquaredTo(closestLandscaper.location) > myLoc.distanceSquaredTo(r.location))
+                                    closestLandscaper = r;
+                            }
                         } else{
+                            if (rc.getRoundNum() > Constants.BUILDING_WALL_TURN){
+                                if (!buildingZone.finished()) break;
+                                if (buildingZone.getZone(r.location) == BuildingZone.WALL){
+                                    addLandscaperWall(r.location);
+                                    break;
+                                }
+                            }
                             int d = myLoc.distanceSquaredTo(r.location);
                             if (comm.wallFinished || rc.getRoundNum() >= Constants.MIN_TURN_PUT_LANDSCAPERS) {
                                 if (Util.stuck(r.location, rc, buildingZone) && r.cooldownTurns <= 2) {
@@ -142,7 +160,10 @@ public class ExploreDrone {
                         break;
                     case MINER:
                         if (r.team != rc.getTeam()){
-                            if (closestMiner == null || myLoc.distanceSquaredTo(closestMiner.location) > myLoc.distanceSquaredTo(r.location)) closestMiner = r;
+                            if (rc.getRoundNum() > Constants.MIN_TURN_CLUTCH || comm.dangerDrone.dangerMap[r.location.x][r.location.y] <= 0) {
+                                if (closestMiner == null || myLoc.distanceSquaredTo(closestMiner.location) > myLoc.distanceSquaredTo(r.location))
+                                    closestMiner = r;
+                            }
                         } else if (rc.getRoundNum() >= Constants.MIN_TURN_PUT_LANDSCAPERS && r.cooldownTurns <= 2) {
                             int d = myLoc.distanceSquaredTo(r.location);
                             if (Util.stuck(r.location, rc, buildingZone) && r.cooldownTurns <= 2) {
@@ -176,6 +197,27 @@ public class ExploreDrone {
         } catch (Throwable t) {
             t.printStackTrace();
         }
+    }
+
+    void addLandscaperWall(MapLocation loc){
+        MapLocation newLoc = loc.add(Direction.CENTER);
+        if (rc.onTheMap(newLoc)) map[newLoc.x][newLoc.y] |= LANDSCAPER_BIT;
+        newLoc = loc.add(Direction.NORTH);
+        if (rc.onTheMap(newLoc)) map[newLoc.x][newLoc.y] |= LANDSCAPER_BIT;
+        newLoc = loc.add(Direction.NORTHWEST);
+        if (rc.onTheMap(newLoc)) map[newLoc.x][newLoc.y] |= LANDSCAPER_BIT;
+        newLoc = loc.add(Direction.WEST);
+        if (rc.onTheMap(newLoc)) map[newLoc.x][newLoc.y] |= LANDSCAPER_BIT;
+        newLoc = loc.add(Direction.SOUTHWEST);
+        if (rc.onTheMap(newLoc)) map[newLoc.x][newLoc.y] |= LANDSCAPER_BIT;
+        newLoc = loc.add(Direction.SOUTH);
+        if (rc.onTheMap(newLoc)) map[newLoc.x][newLoc.y] |= LANDSCAPER_BIT;
+        newLoc = loc.add(Direction.SOUTHEAST);
+        if (rc.onTheMap(newLoc)) map[newLoc.x][newLoc.y] |= LANDSCAPER_BIT;
+        newLoc = loc.add(Direction.EAST);
+        if (rc.onTheMap(newLoc)) map[newLoc.x][newLoc.y] |= LANDSCAPER_BIT;
+        newLoc = loc.add(Direction.NORTHEAST);
+        if (rc.onTheMap(newLoc)) map[newLoc.x][newLoc.y] |= LANDSCAPER_BIT;
     }
 
     boolean closeToBuilding(MapLocation loc){
@@ -285,6 +327,7 @@ public class ExploreDrone {
         Direction[] dirArray = dirPath[sight];
         closestFinishedWall = null;
         closestUnfinishedWall = null;
+        bestLateWall = null;
         int bestDist = 0;
         int i = dirArray.length;
         try {
@@ -315,6 +358,15 @@ public class ExploreDrone {
                 }
                 switch(buildingZone.getZone(newLoc)){
                     case BuildingZone.WALL:
+                        if (rc.getRoundNum() > Constants.BUILDING_WALL_TURN){
+                            if ((map[newLoc.x][newLoc.y]&LANDSCAPER_BIT) == 0){
+                                int d = newLoc.distanceSquaredTo(myLoc);
+                                if (bestLateWall == null || d < distBestLateWall){
+                                    distBestLateWall = d;
+                                    bestLateWall = newLoc;
+                                }
+                            }
+                        }
                         int e = rc.senseElevation(newLoc);
                         if (e < Constants.WALL_HEIGHT){
                             if (closestUnfinishedWall == null || zoneUnfinishedWall != BuildingZone.WALL){
@@ -378,7 +430,7 @@ public class ExploreDrone {
             int x = (int) (Math.random() * rc.getMapWidth());
             int y = (int) (Math.random() * rc.getMapHeight());
             MapLocation newLoc = new MapLocation(x, y);
-            if (map[newLoc.x][newLoc.y] > 0) continue;
+            if ((map[newLoc.x][newLoc.y]&EXPLORE_BIT) > 0) continue;
             int dist = myLoc.distanceSquaredTo(newLoc);
             if (dist < bestDist) {
                 bestDist = dist;

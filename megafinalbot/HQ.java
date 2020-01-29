@@ -1,4 +1,4 @@
-package antidronesplus;
+package megafinalbot;
 
 import battlecode.common.*;
 
@@ -146,9 +146,12 @@ public class HQ extends MyRobot {
     }
 
     boolean minerNearby(){
+        if (!buildingZone.finished()) return false;
         RobotInfo[] r = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam());
         for (RobotInfo ri : r){
-            if (ri.getType() == RobotType.MINER) return true;
+            if (ri.getType() == RobotType.MINER){
+                if (buildingZone.getZone(ri.location) != BuildingZone.HOLE) return true;
+            }
         }
         return false;
     }

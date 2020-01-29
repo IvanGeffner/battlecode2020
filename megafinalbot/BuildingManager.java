@@ -1,29 +1,11 @@
-package antidronesplus;
+package megafinalbot;
 
 import battlecode.common.RobotController;
 import battlecode.common.RobotType;
 
 public class BuildingManager {
 
-    static final int MAX_ROUND_VAPORIZER = 500;
-
-    static final int ROUND_LANDSCAPERS_ECO = 350;
-
-    static final int ECO = 0;
-    static final int RUSH = 1;
-    static final int EMERGENCY = 2;
-
     static RobotType getNextBuilding(Comm comm){
-        int gameState = getState(comm);
-        switch(gameState) {
-            case ECO:
-                return getNextBuildingEco(comm);
-            default:
-                return getNextBuildingEco(comm);
-        }
-    }
-
-    static RobotType getNextBuildingEco(Comm comm){
         int fulfillment = comm.buildings[RobotType.FULFILLMENT_CENTER.ordinal()];
         int design = comm.buildings[RobotType.DESIGN_SCHOOL.ordinal()];
         int vaporators = comm.buildings[RobotType.VAPORATOR.ordinal()];
@@ -46,6 +28,7 @@ public class BuildingManager {
             System.out.println(RobotType.DESIGN_SCHOOL.name());
             return RobotType.DESIGN_SCHOOL;
         }
+        /*
         int extraCash = 0;
         if (comm.shouldBuildVaporators()){
             System.out.println("Should build vaps!");
@@ -55,15 +38,13 @@ public class BuildingManager {
             if (Constants.DEBUG == 1) System.out.println(RobotType.VAPORATOR.name());
             return RobotType.VAPORATOR;
         }
+
         if (comm.buildings[RobotType.DESIGN_SCHOOL.ordinal()] == 0) {
             System.out.println(RobotType.DESIGN_SCHOOL.name());
             return RobotType.DESIGN_SCHOOL;
-        }
-        return null;
-    }
-
-    static int getState(Comm comm){
-        return ECO;
+        }*/
+        if (comm.shouldBuildVaporators()) return RobotType.VAPORATOR;
+        return RobotType.NET_GUN;
     }
 
     static int nVaporators(int soup, int extra){
@@ -87,18 +68,7 @@ public class BuildingManager {
         }
         if (r != RobotType.VAPORATOR) return false;
         int vapor = comm.buildings[RobotType.VAPORATOR.ordinal()], drones = comm.buildings[RobotType.DELIVERY_DRONE.ordinal()];
-        switch(vapor){
-            case 0:
-                //return false;
-            case 1:
-                //return false;
-            case 2:
-                //return drones < 1;
-            case 3:
-                //return drones < 2;
-            default:
-                return drones < vapor;
-        }
+        return drones <= vapor;
     }
 
     static boolean shouldBuildLandscaper(Comm comm, RobotController rc){
@@ -116,18 +86,7 @@ public class BuildingManager {
         }
         if (r != RobotType.VAPORATOR) return false;
         int vapor = comm.buildings[RobotType.VAPORATOR.ordinal()], landscapers = comm.buildings[RobotType.LANDSCAPER.ordinal()];
-        switch(vapor){
-            case 0:
-                //return false;
-            case 1:
-                //return false;
-            case 2:
-                //return landscapers < 1;
-            case 3:
-                //return landscapers < 2;
-            default:
-                return landscapers < vapor;
-        }
+        return landscapers < vapor;
     }
 
     static boolean haveSoupToSpawn(RobotController rc, RobotType r){

@@ -1,4 +1,4 @@
-package antidronesplus;
+package megafinalbot;
 
 import battlecode.common.*;
 
@@ -157,20 +157,15 @@ public class Miner extends MyRobot {
             ans = getCloseBuildingTarget();
         }
         return ans;
-        /*
-        if (rc.getRoundNum() >= Constants.MIN_TURN_BUILD_VAPORATORS){
-            ans = getTargetForVaporator();
-            if (ans != null) return ans;
-            return explore.HQloc;
-        } else {
-            ans = getCloseBuildingTarget();
-        }
-        return ans;*/
     }
 
     MapLocation getTargetForVaporator(){
-        if (rc.getRoundNum() >= Constants.LANDSCAPERS_TO_ENEMY_HQ && comm.enemyHQLoc != null) return comm.enemyHQLoc;
-        return null;
+        if (rc.getRoundNum() >= Constants.LANDSCAPERS_TO_ENEMY_HQ){
+            if (rc.getRoundNum() <= Constants.MIN_TURN_CLUTCH - Constants.SAFETY_TURNS_CRUNCH) return comm.enemyHQLoc;
+            return explore.exploreTarget();
+
+        }
+        return comm.HQLoc;
     }
 
     MapLocation getCloseBuildingTarget() {
@@ -244,7 +239,7 @@ public class Miner extends MyRobot {
         if (!buildingZone.finished()) return;
         if (!comm.shouldBuildOnWall() && rc.getLocation().distanceSquaredTo(explore.HQloc) > Constants.DIST_TO_BUILD) return;
         //RobotType type = BuildingManager.getNextBuilding(comm);
-        if (typeToBuild == null) return;
+        if (typeToBuild == null || typeToBuild == RobotType.NET_GUN) return;
         if (!BuildingManager.haveSoupToSpawn(rc, typeToBuild)) return;
         if (Constants.DEBUG == 1) System.out.println(typeToBuild.name());
         if (rc.getTeamSoup() <= typeToBuild.cost) return;
@@ -266,6 +261,7 @@ public class Miner extends MyRobot {
     void tryBuildNetGun(){
         if (!BuildingManager.haveSoupToSpawn(rc, RobotType.NET_GUN)) return;
         if (!explore.dronesFound) return;
+        if (!explore.seenLandscaperMyTeam) return;
         //if (rc.getLocation().distanceSquaredTo(explore.closestDrone) > 24) return;
         build(RobotType.NET_GUN);
     }
@@ -303,6 +299,18 @@ public class Miner extends MyRobot {
             if (bestBuildingSpot != null){
                 rc.setIndicatorDot(bestBuildingSpot.loc, 255, 255, 255);
                 System.out.println("Best spot " + bestBuildingSpot.score() + " " + bestBuildingSpot.zone);
+            }
+
+            if (comm.shouldBuildVaporators() && bestBuildingSpot != null && buildType == RobotType.NET_GUN){
+                int vaps = comm.buildings[RobotType.VAPORATOR.ordinal()];
+                int nets = comm.buildings[RobotType.NET_GUN.ordinal()];
+                if (vaps < 2*nets){
+                    switch(bestBuildingSpot.zone){
+                        case BuildingZone.WALL:
+                        case BuildingZone.OUTER_WALL:
+                        case BuildingZone.HOLE: return;
+                    }
+                }
             }
 
             if (bestBuildingSpot != null && rc.canBuildRobot(buildType, bestBuildingSpot.dir)){
@@ -429,7 +437,7 @@ public class Miner extends MyRobot {
                                 score = 0;
                                 if (height >= Constants.WALL_HEIGHT){
                                     int t = explore.minDistNetGun[dir.ordinal()];
-                                    if (t == 0 || t >= 13 || (closeToEnemyHQ() && t >= 5)) {
+                                    if (t == 0 || t >= 8 || (closeToEnemyHQ() && t >= 5)) {
                                         score = 2;
                                     }
                                 }
@@ -475,6 +483,13 @@ public class Miner extends MyRobot {
             if (score() == 0) return false;
             if (s.score() == 0) return true;
             if (buildType == RobotType.NET_GUN){
+                int d1 = explore.minDistNetGun[dir.ordinal()], d2 = explore.minDistNetGun[s.dir.ordinal()];
+                if (d1 != d2){
+                    if (d1 == 0) return true;
+                    if (d2 == 0) return false;
+                    if (d1 > d2) return true;
+                    if (d2 < d1) return false;
+                }
                 if (danger.minDist[dir.ordinal()] < danger.minDist[s.dir.ordinal()]) return true;
                 if (danger.minDist[dir.ordinal()] > danger.minDist[s.dir.ordinal()]) return false;
             }

@@ -13,7 +13,7 @@ public class ExploreMiner {
     final int MAX_EXPLORE_TIME = 1500;
     final int MIN_DIST_NET_GUN = 48;
     final int MIN_DIST_NET_GUN_NEAR_HQ = 8;
-    final int MIN_BYTECODE_AFTER_CHECKING = 3500;
+    final int MIN_BYTECODE_AFTER_CHECKING = 5000;
 
     int[][] map;
     RobotController rc;
@@ -99,11 +99,6 @@ public class ExploreMiner {
 
     void updateBuilder(){
         myLoc = rc.getLocation();
-        try {
-            myElev = rc.senseElevation(myLoc);
-        } catch(Throwable t){
-            t.printStackTrace();
-        }
         checkUnits();
     }
 
@@ -238,8 +233,10 @@ public class ExploreMiner {
             if (closestSoup != null){
                 bestDist = myLoc.distanceSquaredTo(closestSoup);
             }
+            myElev = rc.senseElevation(myLoc);
             MapLocation[] seenSoups = rc.senseNearbySoup();
             for (MapLocation soup : seenSoups) {
+                if (Clock.getBytecodesLeft() < MIN_BYTECODE_AFTER_CHECKING) return;
                 if (isAccessible(soup)) {
                     int d = myLoc.distanceSquaredTo(soup);
                     if (closestSoup == null || d < bestDist) {
@@ -263,6 +260,7 @@ public class ExploreMiner {
 
     boolean isAccessible(MapLocation loc){
         try {
+            if ((map[loc.x][loc.y] & SOUP_BIT) > 0) return true;
             MapLocation newLoc = loc.add(Direction.NORTH);
             if (rc.canSenseLocation(newLoc) && !rc.senseFlooding(newLoc)){
                 int e = rc.senseElevation(newLoc);

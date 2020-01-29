@@ -1,4 +1,4 @@
-package antidronesplus;
+package finalbot;
 
 import battlecode.common.*;
 
@@ -345,13 +345,13 @@ public class Landscaper extends MyRobot {
     static final int FLOODED_NEXT_TO_WALL = 1;
     static final int FLOODED_WALL = 2;
     static final int FLOODED_OUTER_WALL = 3;
-    static final int FLOODED_HOLE = 4;
+    //static final int FLOODED_HOLE = 4;
     static final int WALL_LOW = 5;
     static final int BUILDING_AREA = 6;
     static final int NEXT_TO_WALL = 7;
     static final int HOLE = 8;
-    static final int WALL_HIGH = 9;
-    static final int WALL_SUPER_HIGH = 10;
+    static final int WALL_HIGH = 10;
+    static final int WALL_SUPER_HIGH = 9;
 
 
     class AdjacentSpot {
@@ -379,7 +379,6 @@ public class Landscaper extends MyRobot {
                     elevation = rc.senseElevation(loc);
                     flooded = rc.senseFlooding(loc);
                     RobotInfo r = rc.senseRobotAtLocation(loc);
-                    //TODO: wtf how to access building HP
                     if (r != null && r.getType().isBuilding()) elevation += r.getDirtCarrying();
                     if (sight >= 8){
                         //if (Constants.DEBUG == 1) System.out.println("Before compute Adj: " + Clock.getBytecodeNum());
@@ -410,10 +409,10 @@ public class Landscaper extends MyRobot {
                     if (flood(e)) return FLOODED_NEXT_TO_WALL;
                     return NEXT_TO_WALL;
                 case BuildingZone.HOLE:
-                    if (myDirt > d) {
+                    /*if (myDirt > d) {
                         if (flood(e)) return FLOODED_HOLE;
                         return HOLE;
-                    }
+                    }*/
                     return HOLE;
                 case BuildingZone.OUTER_WALL:
                     if (e < Constants.WALL_HEIGHT){

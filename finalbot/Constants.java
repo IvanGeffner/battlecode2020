@@ -1,4 +1,4 @@
-package antidronesplus;
+package finalbot;
 
 public class Constants {
 
@@ -24,7 +24,7 @@ public class Constants {
     static final int MIN_TURN_PREPARE_CLUTCH = 1400;
     static final int MIN_TURN_CLUTCH = 1550;
     static final int MIN_TURN_BUILD_VAPORATORS = 500;
-    static final int MAX_TURN_BUILD_VAPORATORS = 1250;
+    static final int MAX_TURN_BUILD_VAPORATORS = 1150;
     static final int TURN_START_BUILDING_MORE_DRONES = 1250;
     static final int MAX_TURN_RUSH = 300;
     static final double REINVESTMENT_CONSTANT = 0.8;

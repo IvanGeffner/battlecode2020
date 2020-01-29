@@ -1,4 +1,4 @@
-package antidronesplus;
+package finalbot;
 
 import battlecode.common.*;
 

@@ -61,24 +61,24 @@ public class Miner extends MyRobot {
 
         //CHOOSE TARGET AND MOVE
 
-        if (!flee){
-            MapLocation target;
-            if (!builder) {
-                target = getTarget();
-            }
-            else{
+       if (!flee){
+           MapLocation target;
+           if (!builder) {
+               target = getTarget();
+           }
+           else{
                 target = explore.HQloc;
-            }
-            bugPath.moveTo(target);
-        }
+           }
+           bugPath.moveTo(target);
+       }
 
 
-        //END OF TURN STUFF
+       //END OF TURN STUFF
 
-        comm.readMessages();
-        comm.getEnemyHQLoc();
-        if (comm.wallMes != null) buildingZone.update(comm.wallMes);
-        buildingZone.run();
+       comm.readMessages();
+       comm.getEnemyHQLoc();
+       if (comm.wallMes != null) buildingZone.update(comm.wallMes);
+       buildingZone.run();
 
     }
 
@@ -360,107 +360,107 @@ public class Miner extends MyRobot {
         }
 
         int score(){
-            if (score >= 0) return score;
-            switch(buildType) {
-                case DESIGN_SCHOOL:
-                case VAPORATOR:
-                    if (buildOnWall){
-                        switch(zone){
-                            case BuildingZone.OUTER_WALL:
-                                score = 0;
-                                if (buildingZone.canBuild(loc) && height >= Constants.WALL_HEIGHT) score = 2;
-                                else if (height >= Constants.WALL_HEIGHT) score = 1;
-                                return score;
-                            case BuildingZone.BUILDING_AREA:
-                            case BuildingZone.NEXT_TO_WALL:
-                                score = 1;
-                                return score;
-                            default:
-                                score = 0;
-                                return score;
-                        }
-                    } else{
-                        switch (zone) {
-                            case BuildingZone.BUILDING_AREA:
-                                score = 2;
-                                return score;
-                            case BuildingZone.NEXT_TO_WALL:
-                                score = 1;
-                                return score;
-                            default:
-                                score = 0;
-                                return score;
-                        }
-                    }
-                case FULFILLMENT_CENTER:
-                    if (buildOnWall){
-                        switch(zone){
-                            case BuildingZone.OUTER_WALL:
-                                score = 0;
-                                if (buildingZone.canBuild(loc) && height >= Constants.WALL_HEIGHT) score = 2;
-                                else if (height >= Constants.WALL_HEIGHT) score = 1;
-                                return score;
-                            case BuildingZone.BUILDING_AREA:
-                            case BuildingZone.NEXT_TO_WALL:
-                                score = 1;
-                                return score;
-                            default:
-                                score = 0;
-                                return score;
-                        }
-                    } else{
-                        switch (zone) {
-                            case BuildingZone.BUILDING_AREA:
-                                score = 1;
-                                return score;
-                            case BuildingZone.NEXT_TO_WALL:
-                                score = 2;
-                                return score;
-                            default:
-                                score = 0;
-                                return score;
-                        }
-                    }
-                case NET_GUN:
-                    if (buildOnWall){
-                        switch(zone){
-                            case BuildingZone.WALL:
-                            case BuildingZone.OUTER_WALL:
-                                score = 0;
-                                if (height >= Constants.WALL_HEIGHT){
-                                    int t = explore.minDistNetGun[dir.ordinal()];
-                                    if (t == 0 || t >= 13 || (closeToEnemyHQ() && t >= 5)) {
-                                        score = 2;
-                                    }
-                                }
-                                return score;
-                            case BuildingZone.NEXT_TO_WALL:
-                                int t = explore.minDistNetGun[dir.ordinal()];
-                                if (t == 0 || t >= 5) {
-                                    score = 2;
-                                }
-                                return score;
-                            default:
-                                score = 0;
-                                return score;
-                        }
-                    } else{
-                        switch (zone) {
-                            case BuildingZone.NEXT_TO_WALL:
-                                int t = explore.minDistNetGun[dir.ordinal()];
-                                if (t == 0 || t >= 5) {
-                                    score = 2;
-                                }
-                                return score;
-                            default:
-                                score = 0;
-                                return score;
-                        }
-                    }
-                default:
-                    score = 2;
-                    return score;
-            }
+           if (score >= 0) return score;
+           switch(buildType) {
+               case DESIGN_SCHOOL:
+               case VAPORATOR:
+                   if (buildOnWall){
+                       switch(zone){
+                           case BuildingZone.OUTER_WALL:
+                               score = 0;
+                               if (buildingZone.canBuild(loc) && height >= Constants.WALL_HEIGHT) score = 2;
+                               else if (height >= Constants.WALL_HEIGHT) score = 1;
+                               return score;
+                           case BuildingZone.BUILDING_AREA:
+                           case BuildingZone.NEXT_TO_WALL:
+                               score = 1;
+                               return score;
+                           default:
+                               score = 0;
+                               return score;
+                       }
+                   } else{
+                       switch (zone) {
+                           case BuildingZone.BUILDING_AREA:
+                               score = 2;
+                               return score;
+                           case BuildingZone.NEXT_TO_WALL:
+                               score = 1;
+                               return score;
+                           default:
+                               score = 0;
+                               return score;
+                       }
+                   }
+               case FULFILLMENT_CENTER:
+                   if (buildOnWall){
+                       switch(zone){
+                           case BuildingZone.OUTER_WALL:
+                               score = 0;
+                               if (buildingZone.canBuild(loc) && height >= Constants.WALL_HEIGHT) score = 2;
+                               else if (height >= Constants.WALL_HEIGHT) score = 1;
+                               return score;
+                           case BuildingZone.BUILDING_AREA:
+                           case BuildingZone.NEXT_TO_WALL:
+                               score = 1;
+                               return score;
+                           default:
+                               score = 0;
+                               return score;
+                       }
+                   } else{
+                       switch (zone) {
+                           case BuildingZone.BUILDING_AREA:
+                               score = 1;
+                               return score;
+                           case BuildingZone.NEXT_TO_WALL:
+                               score = 2;
+                               return score;
+                           default:
+                               score = 0;
+                               return score;
+                       }
+                   }
+               case NET_GUN:
+                   if (buildOnWall){
+                       switch(zone){
+                           case BuildingZone.WALL:
+                           case BuildingZone.OUTER_WALL:
+                               score = 0;
+                               if (height >= Constants.WALL_HEIGHT){
+                                   int t = explore.minDistNetGun[dir.ordinal()];
+                                   if (t == 0 || t >= 8 || (closeToEnemyHQ() && t >= 5)) {
+                                       score = 2;
+                                   }
+                               }
+                               return score;
+                           case BuildingZone.NEXT_TO_WALL:
+                               int t = explore.minDistNetGun[dir.ordinal()];
+                               if (t == 0 || t >= 5) {
+                                   score = 2;
+                               }
+                               return score;
+                           default:
+                               score = 0;
+                               return score;
+                       }
+                   } else{
+                       switch (zone) {
+                           case BuildingZone.NEXT_TO_WALL:
+                               int t = explore.minDistNetGun[dir.ordinal()];
+                               if (t == 0 || t >= 5) {
+                                   score = 2;
+                               }
+                               return score;
+                           default:
+                               score = 0;
+                               return score;
+                       }
+                   }
+               default:
+                   score = 2;
+                   return score;
+           }
         }
 
         boolean closeToEnemyHQ(){
@@ -475,6 +475,13 @@ public class Miner extends MyRobot {
             if (score() == 0) return false;
             if (s.score() == 0) return true;
             if (buildType == RobotType.NET_GUN){
+                int d1 = explore.minDistNetGun[dir.ordinal()], d2 = explore.minDistNetGun[s.dir.ordinal()];
+                if (d1 != d2){
+                    if (d1 == 0) return true;
+                    if (d2 == 0) return false;
+                    if (d1 > d2) return true;
+                    if (d2 < d1) return false;
+                }
                 if (danger.minDist[dir.ordinal()] < danger.minDist[s.dir.ordinal()]) return true;
                 if (danger.minDist[dir.ordinal()] > danger.minDist[s.dir.ordinal()]) return false;
             }

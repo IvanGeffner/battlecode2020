@@ -1,4 +1,4 @@
-package antidronesplus;
+package finalbot;
 
 import battlecode.common.*;
 
@@ -70,7 +70,7 @@ public class Drone extends MyRobot {
         }
         if (exploreDrone.closestLandscaper != null) return exploreDrone.closestLandscaper.location;
         if (exploreDrone.closestMiner != null) return exploreDrone.closestMiner.location;
-        if (firstDrone || (buildingZone.HQloc != null && comm.isRush())) return buildingZone.HQloc;
+        if (buildingZone.HQloc != null && comm.isRush()) return buildingZone.HQloc;
         if (exploreDrone.stuckAlly != null && exploreDrone.closestFinishedWall != null){
             if (shouldGrabLandscaper()) return exploreDrone.stuckAlly.location;
         }

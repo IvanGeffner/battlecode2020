@@ -1,4 +1,4 @@
-package antidronesplus;
+package finalbot;
 
 import battlecode.common.*;
 
@@ -29,6 +29,7 @@ public class ExploreDrone {
     boolean emergency;
 
     RobotInfo closestMiner, closestLandscaper;
+    RobotInfo closestMinerOnDrone;
     Comm comm;
 
     BuildingZone buildingZone;
@@ -92,6 +93,7 @@ public class ExploreDrone {
             closestLandscaperMyTeam = null;
             closestEnemyBuilding = null;
             closestEnemyDrone = null;
+            closestMinerOnDrone = null;
             comm.dangerDrone.initVisibleDanger();
             int minDistStuckAlly = 0;
             RobotInfo[] robots = rc.senseNearbyRobots();
@@ -119,7 +121,10 @@ public class ExploreDrone {
                     case LANDSCAPER:
                         if (r.team != rc.getTeam()){
                             seenLandscaper = true;
-                            if (closestLandscaper == null || myLoc.distanceSquaredTo(closestLandscaper.location) > myLoc.distanceSquaredTo(r.location)) closestLandscaper = r;
+                            if (rc.getRoundNum() > Constants.MIN_TURN_CLUTCH || comm.dangerDrone.dangerMap[r.location.x][r.location.y] <= 0) {
+                                if (closestLandscaper == null || myLoc.distanceSquaredTo(closestLandscaper.location) > myLoc.distanceSquaredTo(r.location))
+                                    closestLandscaper = r;
+                            }
                         } else{
                             int d = myLoc.distanceSquaredTo(r.location);
                             if (comm.wallFinished || rc.getRoundNum() >= Constants.MIN_TURN_PUT_LANDSCAPERS) {
@@ -142,7 +147,10 @@ public class ExploreDrone {
                         break;
                     case MINER:
                         if (r.team != rc.getTeam()){
-                            if (closestMiner == null || myLoc.distanceSquaredTo(closestMiner.location) > myLoc.distanceSquaredTo(r.location)) closestMiner = r;
+                            if (rc.getRoundNum() > Constants.MIN_TURN_CLUTCH || comm.dangerDrone.dangerMap[r.location.x][r.location.y] <= 0) {
+                                if (closestMiner == null || myLoc.distanceSquaredTo(closestMiner.location) > myLoc.distanceSquaredTo(r.location))
+                                    closestMiner = r;
+                            }
                         } else if (rc.getRoundNum() >= Constants.MIN_TURN_PUT_LANDSCAPERS && r.cooldownTurns <= 2) {
                             int d = myLoc.distanceSquaredTo(r.location);
                             if (Util.stuck(r.location, rc, buildingZone) && r.cooldownTurns <= 2) {

@@ -1,4 +1,4 @@
-package antidronesplus;
+package megafinalbot;
 
 import battlecode.common.*;
 

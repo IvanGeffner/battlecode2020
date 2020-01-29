@@ -1,4 +1,4 @@
-package antidronesplus;
+package megafinalbot;
 
 import battlecode.common.*;
 
@@ -12,6 +12,8 @@ public class Landscaper extends MyRobot {
     BuildingZone buildingZone;
     Danger danger;
     MapLocation myLoc;
+
+    boolean wallBuilderBehavior = false;
 
     Direction[] dirs = Direction.values();
 
@@ -47,19 +49,25 @@ public class Landscaper extends MyRobot {
         }
         if (Constants.DEBUG == 1) System.out.println("Bytecode post trying to flee water " + Clock.getBytecodeNum());
 
-        //CHECK URGENCT MOVES: flooded cells, hurt buildings, enemy buildings, etc.
+        if (wallBuilderBehavior){
+            depositWallBuilder();
+            tryDigAndDeposit();
+        } else {
 
-        target = null;
-        checkUrgentMoves();
-        if (target != null) bugPath.moveTo(target);
+            //CHECK URGENCT MOVES: flooded cells, hurt buildings, enemy buildings, etc.
 
-        //TRY DEPOSITING ON ENEMY BUILDING
+            target = null;
+            checkUrgentMoves();
+            if (target != null) bugPath.moveTo(target);
 
-        tryBury();
+            //TRY DEPOSITING ON ENEMY BUILDING
 
-        //TRY DIGGING AND DEPOSITING (GENERAL)
+            tryBury();
 
-        tryDigAndDeposit();
+            //TRY DIGGING AND DEPOSITING (GENERAL)
+
+            tryDigAndDeposit();
+        }
 
 
         //IF NOT FLEE GO TO TARGET
@@ -88,8 +96,35 @@ public class Landscaper extends MyRobot {
         }
     }
 
+    boolean depositWallBuilder(){
+        if (!buildingZone.finished()) return false;
+        if (rc.getDirtCarrying() <= 0) return false;
+        try {
+            Direction bestDir = null;
+            int bestHeight = -Constants.INF;
+            for (Direction dir : dirs) {
+                MapLocation newLoc = rc.getLocation().add(dir);
+                if (!rc.canDepositDirt(dir)) continue;
+                if (buildingZone.getZone(newLoc) != BuildingZone.WALL) continue;
+                int elev = 0;
+                if (rc.canSenseLocation(newLoc)) {
+                    elev = rc.senseElevation(newLoc);
+                }
+                if (bestDir == null || bestHeight > elev){
+                    bestDir = dir;
+                    bestHeight = elev;
+                }
+            }
+            if (bestDir != null) rc.depositDirt(bestDir);
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+        return false;
+    }
+
     void updateBeginningTurn(){
         if (comm.singleMessage()) comm.readMessages();
+        if (buildingZone.finished() && rc.getRoundNum() > Constants.BUILDING_WALL_TURN && buildingZone.getZone(rc.getLocation()) == BuildingZone.WALL) wallBuilderBehavior = true;
         waterManager.update();
         exploreLandscaper.update();
         exploreLandscaper.checkComm();
@@ -345,13 +380,13 @@ public class Landscaper extends MyRobot {
     static final int FLOODED_NEXT_TO_WALL = 1;
     static final int FLOODED_WALL = 2;
     static final int FLOODED_OUTER_WALL = 3;
-    static final int FLOODED_HOLE = 4;
+    //static final int FLOODED_HOLE = 4;
     static final int WALL_LOW = 5;
     static final int BUILDING_AREA = 6;
     static final int NEXT_TO_WALL = 7;
     static final int HOLE = 8;
-    static final int WALL_HIGH = 9;
-    static final int WALL_SUPER_HIGH = 10;
+    static final int WALL_HIGH = 10;
+    static final int WALL_SUPER_HIGH = 9;
 
 
     class AdjacentSpot {
@@ -379,7 +414,6 @@ public class Landscaper extends MyRobot {
                     elevation = rc.senseElevation(loc);
                     flooded = rc.senseFlooding(loc);
                     RobotInfo r = rc.senseRobotAtLocation(loc);
-                    //TODO: wtf how to access building HP
                     if (r != null && r.getType().isBuilding()) elevation += r.getDirtCarrying();
                     if (sight >= 8){
                         //if (Constants.DEBUG == 1) System.out.println("Before compute Adj: " + Clock.getBytecodeNum());
@@ -410,10 +444,10 @@ public class Landscaper extends MyRobot {
                     if (flood(e)) return FLOODED_NEXT_TO_WALL;
                     return NEXT_TO_WALL;
                 case BuildingZone.HOLE:
-                    if (myDirt > d) {
+                    /*if (myDirt > d) {
                         if (flood(e)) return FLOODED_HOLE;
                         return HOLE;
-                    }
+                    }*/
                     return HOLE;
                 case BuildingZone.OUTER_WALL:
                     if (e < Constants.WALL_HEIGHT){
@@ -428,8 +462,11 @@ public class Landscaper extends MyRobot {
                         if (flood(e)) return FLOODED_WALL;
                         return WALL_LOW;
                     }
-                    else if (e > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT) return WALL_SUPER_HIGH;
-                    return WALL_HIGH;
+                    if (rc.getRoundNum() <= Constants.BUILDING_WALL_TURN) {
+                        if (e > Constants.WALL_HEIGHT + Constants.MAX_DIFF_HEIGHT) return WALL_SUPER_HIGH;
+                        return WALL_HIGH;
+                    }
+                    return WALL_LOW;
             }
         }
 

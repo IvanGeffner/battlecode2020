@@ -1,4 +1,4 @@
-package antidronesplus;
+package megafinalbot;
 
 import battlecode.common.*;
 
@@ -17,10 +17,12 @@ public class Drone extends MyRobot {
 
     int roundCreated;
     boolean firstDrone = false;
+    boolean lateDrone = false;
 
     Drone(RobotController rc){
         this.rc = rc;
         roundCreated = rc.getRoundNum();
+        lateDrone = roundCreated > Constants.BUILDING_WALL_TURN;
         comm = new Comm(rc);
         //myLoc = rc.getLocation();
         buildingZone = new BuildingZone(rc);
@@ -49,6 +51,7 @@ public class Drone extends MyRobot {
         tryDropAlly();
         MapLocation target = getTarget();
         if (target != null){
+            if (rc.isCurrentlyHoldingUnit() && target.distanceSquaredTo(rc.getLocation()) == 0) target = getNewTarget();
             droneBugPath.updateGuns(comm.dangerDrone);
             droneBugPath.moveTo(target);
         }
@@ -57,11 +60,25 @@ public class Drone extends MyRobot {
         comm.readMessages();
     }
 
+    MapLocation getNewTarget(){
+        for (Direction dir : dirs){
+            if (dir == Direction.CENTER) continue;
+            if (!rc.canMove(dir)) continue;
+            return rc.getLocation().add(dir);
+        }
+        return rc.getLocation();
+    }
+
     MapLocation getTarget(){
         if (!rc.isReady()) return null;
         if (rc.isCurrentlyHoldingUnit()){
             if (robotHeld == null || robotHeld.getTeam() != rc.getTeam()) return closestWater();
             else{
+                if (lateDrone && robotHeld.getType() == RobotType.LANDSCAPER){
+                    if (exploreDrone.bestLateWall != null) return exploreDrone.bestLateWall;
+                    if (comm.HQLoc != null) return comm.HQLoc;
+                    return exploreDrone.exploreTarget();
+                }
                 if (shouldPrepareClutch()) return clutchTarget();
                 MapLocation ans = locationDepositAlly();
                 if (ans != null) return ans;
@@ -70,7 +87,7 @@ public class Drone extends MyRobot {
         }
         if (exploreDrone.closestLandscaper != null) return exploreDrone.closestLandscaper.location;
         if (exploreDrone.closestMiner != null) return exploreDrone.closestMiner.location;
-        if (firstDrone || (buildingZone.HQloc != null && comm.isRush())) return buildingZone.HQloc;
+        if (buildingZone.HQloc != null && comm.isRush()) return buildingZone.HQloc;
         if (exploreDrone.stuckAlly != null && exploreDrone.closestFinishedWall != null){
             if (shouldGrabLandscaper()) return exploreDrone.stuckAlly.location;
         }
@@ -206,6 +223,10 @@ public class Drone extends MyRobot {
         if (!rc.isCurrentlyHoldingUnit()) return;
         if (robotHeld == null || robotHeld.team != rc.getTeam()) return;
         if (!buildingZone.finished()) return;
+        if (robotHeld.type == RobotType.LANDSCAPER && lateDrone){
+            tryDropOnLateWall();
+            return;
+        }
         //boolean dropOnEnemyBuilding = rc.getRoundNum() >= Constants.MIN_TURN_CLUTCH;
         if (robotHeld.type == RobotType.LANDSCAPER && shouldPrepareClutch()){
             tryDropNextToBuilding();
@@ -227,6 +248,37 @@ public class Drone extends MyRobot {
                     return;
                 }
                 dir = dir.rotateLeft();
+            }
+        } catch (Throwable t){
+            t.printStackTrace();
+        }
+    }
+
+    void tryDropOnLateWall(){
+        System.out.println("Trying to drop on walllll");
+        if (exploreDrone.bestLateWall == null) return;
+        if (!buildingZone.finished()) return;
+        MapLocation myLoc = rc.getLocation();
+        try {
+            Direction dir = Direction.NORTH;
+            for (int i = 0; i < 8; ++i){
+                MapLocation newLoc = myLoc.add(dir);
+                if (!rc.canDropUnit(dir)){
+                    dir = dir.rotateLeft();
+                    continue;
+                }
+                if (buildingZone.getZone(newLoc) != BuildingZone.WALL){
+                    dir = dir.rotateLeft();
+                    continue;
+                }
+                if ((exploreDrone.map[newLoc.x][newLoc.y]&exploreDrone.LANDSCAPER_BIT) != 0){
+                    dir = dir.rotateLeft();
+                    continue;
+                }
+                rc.dropUnit(dir);
+                robotHeld = null;
+                return;
+
             }
         } catch (Throwable t){
             t.printStackTrace();
