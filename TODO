@@ -6,7 +6,7 @@ Priority Level:
 ***** critical
 
 MINERS:
-- (**) Avoid trying to reach unreachable Soups [HARD]
+- (**) Avoid trying to reach unreachable Soups
 
 PATHFINDING:
 - (*) When fleeing, it is ok to move as long as it is above water level
@@ -27,12 +27,10 @@ Building Manager:
 
 URGENT TODO:
 
-- Landscapers do weird stuff in some maps
+- Landscapers do weird stuff on some maps
 - Better BFS from HQ*
-- Tirar vaques
+- Kill cows (?)
 - Not all miners should try to reach HQ
-- If our HQ has critical HP we should build adjacent landscapers
 - BIG MAPS
 - Sometimes not building net guns
-- Drones dropping landscapers on unfinished walls
 
